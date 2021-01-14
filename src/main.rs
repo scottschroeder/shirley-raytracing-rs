@@ -25,6 +25,32 @@ fn main() -> Result<()> {
 }
 
 fn test_fn(_args: &clap::ArgMatches) -> Result<()> {
+    use std::io::Write;
+
+    let image_width = 256;
+    let image_height = 256;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+
+    write!(output, "P3\n{} {}\n255\n", image_width, image_height)?;
+
+    for j in (0..image_height).rev() {
+        log::trace!("scanlines remaining: {}", j);
+        for i in 0..image_width {
+            let r = (i as f64) / (image_width - 1) as f64;
+            let g = (j as f64) / (image_height - 1) as f64;
+            let b = 0.25f64;
+
+            let scaling = 255.999f64;
+            let ir = (scaling * r) as u8;
+            let ig = (scaling * g) as u8;
+            let ib = (scaling * b) as u8;
+            writeln!(output, "{} {} {}", ir, ig, ib)?;
+        }
+    }
+    log::info!("done");
+
     Ok(())
 }
 
