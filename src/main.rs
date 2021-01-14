@@ -1,5 +1,15 @@
 use anyhow::Result;
 
+pub mod util {
+    mod color;
+    mod vec3;
+    pub use color::Color;
+    pub use vec3::Vec3;
+}
+pub mod image;
+
+use util::{Color, Vec3};
+
 fn main() -> Result<()> {
     color_backtrace::install();
     let args = cli::get_args();
@@ -41,12 +51,10 @@ fn test_fn(_args: &clap::ArgMatches) -> Result<()> {
             let r = (i as f64) / (image_width - 1) as f64;
             let g = (j as f64) / (image_height - 1) as f64;
             let b = 0.25f64;
+            let c = Color(Vec3::new(r, g, b));
 
-            let scaling = 255.999f64;
-            let ir = (scaling * r) as u8;
-            let ig = (scaling * g) as u8;
-            let ib = (scaling * b) as u8;
-            writeln!(output, "{} {} {}", ir, ig, ib)?;
+            image::write_ppm_pixel(&mut output, &c)?;
+            writeln!(output, "")?;
         }
     }
     log::info!("done");
