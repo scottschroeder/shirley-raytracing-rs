@@ -97,3 +97,16 @@ impl ops::SubAssign for Vec3 {
         self.vec -= rhs.vec
     }
 }
+
+struct Point(pub Vec3);
+
+struct Ray {
+    orig: Point,
+    dir: Vec3,
+}
+
+impl Ray {
+    pub fn at(&self, t: Real) -> Point {
+        Point(self.orig.0 + self.dir.scale(t))
+    }
+}
