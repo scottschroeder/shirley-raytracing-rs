@@ -4,18 +4,19 @@ pub mod util {
     mod color;
     mod vec3;
     pub use color::Color;
-    pub use vec3::{random_unit_vector, Point, Ray, Vec3};
+    pub use vec3::{random_in_unit_sphere, random_unit_vector, Point, Ray, Vec3};
 }
 pub mod camera;
 pub mod objects {
     mod hittable;
+    pub mod material;
     pub mod scene;
     pub mod sphere;
-    pub use hittable::Geometry;
+    pub use hittable::{Geometry, Hittable};
 }
 pub mod image;
 
-use objects::{scene::Scene, Geometry};
+use objects::{scene::Scene, Hittable};
 use util::{Color, Ray, Vec3};
 
 const DEFAULT_WIDTH: &str = "640";
@@ -56,18 +57,13 @@ fn ray_color(ray: &Ray, scene: &Scene, max_depth: usize) -> Color {
     if max_depth == 0 {
         return Color::default();
     }
-    if let Some(r) = scene.hit(ray, 0.001, std::f64::INFINITY) {
-        let target = crate::util::Point(r.point.0 + r.normal + crate::util::random_unit_vector());
-        let c = ray_color(
-            &Ray {
-                orig: r.point,
-                direction: target.0 - r.point.0,
-            },
-            scene,
-            max_depth - 1,
-        );
-        // Color((Vec3::new(1.0, 1.0, 1.0) + r.normal).scale(0.5))
-        Color(c.0.scale(0.5))
+    if let Some((obj, r)) = scene.hit(ray, 0.001, std::f64::INFINITY) {
+        if let Some(scatter) = obj.material.scatter(ray, &r) {
+            let next = ray_color(&scatter.direction, scene, max_depth - 1);
+            Color(scatter.attenuation.0 * next.0)
+        } else {
+            Color::default()
+        }
     } else {
         skybox(ray)
     }
@@ -117,15 +113,50 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 }
 
 fn create_scene() -> Scene {
+    use crate::objects::{
+        material::{Lambertian, Metal},
+        sphere::Sphere,
+    };
+
     let mut scene = Scene::default();
-    scene.add(objects::sphere::Sphere {
-        center: util::Point(Vec3::new(0.0, -100.5, -1.0)),
-        radius: 100.0,
-    });
-    scene.add(objects::sphere::Sphere {
-        center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
-        radius: 0.5,
-    });
+
+    let mat_ground = Lambertian {
+        albedo: Color(Vec3::new(0.8, 0.8, 0.0)),
+    };
+    let mat_center = Lambertian {
+        albedo: Color(Vec3::new(0.7, 0.3, 0.3)),
+    };
+    let mat_left = Metal::new(Color(Vec3::new(0.8, 0.8, 0.8)), Some(0.3));
+    let mat_right = Metal::new(Color(Vec3::new(0.8, 0.6, 0.2)), Some(1.0));
+
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, -100.5, -1.0)),
+            radius: 100.0,
+        },
+        mat_ground,
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
+            radius: 0.5,
+        },
+        mat_center,
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+            radius: 0.5,
+        },
+        mat_left,
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
+            radius: 0.5,
+        },
+        mat_right,
+    );
     // scene.add(objects::sphere::Sphere {
     //     center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
     //     radius: 0.3,

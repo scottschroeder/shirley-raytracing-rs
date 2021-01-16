@@ -1,7 +1,9 @@
-type Real = f64;
+use rand::prelude::{Rng, ThreadRng};
 use std::ops;
 
-use rand::prelude::{Rng, ThreadRng};
+type Real = f64;
+
+const NEAR_ZERO: f64 = 1e-8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec3 {
@@ -80,6 +82,16 @@ impl Vec3 {
     }
 
     #[inline]
+    pub fn near_zero(&self) -> bool {
+        self.vec.x.abs() < NEAR_ZERO && self.vec.y.abs() < NEAR_ZERO && self.vec.z.abs() < NEAR_ZERO
+    }
+
+    #[inline]
+    pub fn reflect(&self, normal: &Vec3) -> Vec3 {
+        *self - normal.scale(2.0 * self.dot(normal))
+    }
+
+    #[inline]
     pub fn sqrt_mut(&mut self) {
         self.vec.x = self.vec.x.sqrt();
         self.vec.y = self.vec.y.sqrt();
@@ -128,6 +140,18 @@ impl ops::Sub for Vec3 {
         Vec3 {
             vec: self.vec - rhs.vec,
         }
+    }
+}
+
+impl ops::Mul for Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Vec3::new(
+            self.vec.x * rhs.vec.x,
+            self.vec.y * rhs.vec.y,
+            self.vec.z * rhs.vec.z,
+        )
     }
 }
 

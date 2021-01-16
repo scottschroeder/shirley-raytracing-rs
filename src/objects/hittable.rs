@@ -25,3 +25,8 @@ impl HitRecord {
 pub trait Geometry {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
+
+pub trait Hittable {
+    type Leaf;
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<(&Self::Leaf, HitRecord)>;
+}
