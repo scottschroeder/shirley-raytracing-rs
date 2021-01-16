@@ -32,7 +32,8 @@ pub fn to_image<P: AsRef<std::path::Path>>(img: &Image, path: P) {
     let mut dst = image::RgbImage::new(img.dimm.width as u32, img.dimm.height as u32);
     for j in 0..img.dimm.height {
         for (i, c) in img.data[j].iter().enumerate() {
-            let c = Color(c.0.scale(1.0 / (img.samples as f64)));
+            let mut c = Color(c.0.scale(1.0 / (img.samples as f64)));
+            c.0.sqrt_mut();
             dst.put_pixel(i as u32, (img.dimm.height - j - 1) as u32, c.to_pixel())
         }
     }

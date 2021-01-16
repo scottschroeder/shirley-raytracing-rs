@@ -4,7 +4,7 @@ pub mod util {
     mod color;
     mod vec3;
     pub use color::Color;
-    pub use vec3::{Point, Ray, Vec3};
+    pub use vec3::{random_unit_vector, Point, Ray, Vec3};
 }
 pub mod camera;
 pub mod objects {
@@ -52,9 +52,22 @@ fn skybox(r: &Ray) -> Color {
     Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
 }
 
-fn ray_color(ray: &Ray, scene: &Scene) -> Color {
-    if let Some(r) = scene.hit(ray, 0.0, std::f64::INFINITY) {
-        Color((Vec3::new(1.0, 1.0, 1.0) + r.normal).scale(0.5))
+fn ray_color(ray: &Ray, scene: &Scene, max_depth: usize) -> Color {
+    if max_depth == 0 {
+        return Color::default();
+    }
+    if let Some(r) = scene.hit(ray, 0.001, std::f64::INFINITY) {
+        let target = crate::util::Point(r.point.0 + r.normal + crate::util::random_unit_vector());
+        let c = ray_color(
+            &Ray {
+                orig: r.point,
+                direction: target.0 - r.point.0,
+            },
+            scene,
+            max_depth - 1,
+        );
+        // Color((Vec3::new(1.0, 1.0, 1.0) + r.normal).scale(0.5))
+        Color(c.0.scale(0.5))
     } else {
         skybox(ray)
     }
@@ -73,7 +86,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
     }
 
     let mut camera = camera::CameraBuilder::default();
-    camera.width(width).aspect_ratio((16, 9));
+    camera.focal_length(1.3).width(width).aspect_ratio((16, 9));
     let camera = camera.build()?;
 
     let mut image = image::Image::from_dimm(camera.dimm);
@@ -92,7 +105,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
                     for _ in 0..samples {
                         let r = camera
                             .pixel_ray(i as f64 + rng.gen::<f64>(), j as f64 + rng.gen::<f64>());
-                        c += ray_color(&r, &scene);
+                        c += ray_color(&r, &scene, 50);
                     }
                     line[i] = c
                 }

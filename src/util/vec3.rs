@@ -1,9 +1,31 @@
 type Real = f64;
 use std::ops;
 
+use rand::prelude::{Rng, ThreadRng};
+
 #[derive(Debug, Clone, Copy)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
+}
+
+#[inline]
+fn random_real(rng: &mut ThreadRng, min: Real, max: Real) -> Real {
+    min + (max - min) * rng.gen::<Real>()
+}
+
+pub fn random_in_unit_sphere() -> Vec3 {
+    loop {
+        let p = Vec3::random_range(-1.0, 1.0);
+        if p.length_squared() <= 1.0 {
+            return p;
+        }
+    }
+}
+
+pub fn random_unit_vector() -> Vec3 {
+    let mut v = random_in_unit_sphere();
+    v.unit_mut();
+    v
 }
 
 impl Vec3 {
@@ -25,6 +47,21 @@ impl Vec3 {
         self.vec.z
     }
 
+    pub fn random() -> Vec3 {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+        Vec3::new(rng.gen::<Real>(), rng.gen::<Real>(), rng.gen::<Real>())
+    }
+
+    pub fn random_range(min: Real, max: Real) -> Vec3 {
+        let mut rng = rand::thread_rng();
+        Vec3::new(
+            random_real(&mut rng, min, max),
+            random_real(&mut rng, min, max),
+            random_real(&mut rng, min, max),
+        )
+    }
+
     #[inline]
     pub fn length(&self) -> Real {
         self.vec.norm()
@@ -41,6 +78,14 @@ impl Vec3 {
             vec: self.vec.scale(s),
         }
     }
+
+    #[inline]
+    pub fn sqrt_mut(&mut self) {
+        self.vec.x = self.vec.x.sqrt();
+        self.vec.y = self.vec.y.sqrt();
+        self.vec.z = self.vec.z.sqrt();
+    }
+
     #[inline]
     pub fn scale_mut(&mut self, s: Real) {
         self.vec.scale_mut(s)

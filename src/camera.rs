@@ -14,6 +14,10 @@ pub struct CameraBuilder {
 }
 
 impl CameraBuilder {
+    pub fn focal_length(&mut self, focal_length: f64) -> &mut Self {
+        self.focal_length = Some(focal_length);
+        self
+    }
     pub fn aspect_ratio<A: Into<AspectRatio>>(&mut self, ratio: A) -> &mut Self {
         self.ratio = Some(ratio.into());
         self
