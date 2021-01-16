@@ -7,6 +7,9 @@ pub mod util {
     pub use vec3::{Point, Ray, Vec3};
 }
 pub mod camera;
+pub mod objects {
+    pub mod sphere;
+}
 pub mod image;
 
 use util::{Color, Ray, Vec3};
@@ -41,6 +44,15 @@ fn skybox(r: &Ray) -> Color {
     Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
 }
 
+fn ray_color(ray: &Ray) -> Color {
+    let s = util::Point(Vec3::new(0.0, 0.0, -1.0));
+    if objects::sphere::hit_sphere(s, 0.5, ray) {
+        Color(Vec3::new(1.0, 0.0, 0.0))
+    } else {
+        skybox(ray)
+    }
+}
+
 fn render_image(args: &clap::ArgMatches) -> Result<()> {
     use std::io::Write;
 
@@ -67,7 +79,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
         log::trace!("scanlines remaining: {}", j);
         for i in 0..camera.dimm.width {
             let r = camera.pixel_ray(i, j);
-            let c = skybox(&r);
+            let c = ray_color(&r);
 
             image::write_ppm_pixel(&mut output, &c)?;
             writeln!(output, "")?;
