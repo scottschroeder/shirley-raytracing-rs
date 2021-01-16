@@ -43,9 +43,9 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn pixel_ray(&self, x: usize, y: usize) -> Ray {
-        let u = (x as f64) / (self.dimm.width as f64);
-        let v = (y as f64) / (self.dimm.height as f64);
+    pub fn pixel_ray(&self, x: f64, y: f64) -> Ray {
+        let u = x / (self.dimm.width as f64);
+        let v = y / (self.dimm.height as f64);
 
         let direction = Vec3::new(
             (2.0 * u - 1.0) * self.width,

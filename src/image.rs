@@ -9,6 +9,7 @@ const PPM_COLOR_SCALE: f64 = 255.999;
 pub struct Image {
     pub dimm: Dimmensions,
     pub data: Vec<Vec<Color>>,
+    pub samples: usize,
 }
 
 impl Image {
@@ -16,6 +17,7 @@ impl Image {
         log::trace!("alloc image buffer");
         Image {
             dimm,
+            samples: 1,
             data: vec![vec![Color(Vec3::new(0.0, 0.0, 0.0)); dimm.width]; dimm.height],
         }
     }
@@ -30,7 +32,7 @@ pub fn to_image<P: AsRef<std::path::Path>>(img: &Image, path: P) {
     let mut dst = image::RgbImage::new(img.dimm.width as u32, img.dimm.height as u32);
     for j in 0..img.dimm.height {
         for (i, c) in img.data[j].iter().enumerate() {
-            // for i in 0..img.dimm.width {
+            let c = Color(c.0.scale(1.0 / (img.samples as f64)));
             dst.put_pixel(i as u32, (img.dimm.height - j - 1) as u32, c.to_pixel())
         }
     }

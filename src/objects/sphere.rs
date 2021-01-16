@@ -1,13 +1,13 @@
 use crate::util::{Point, Ray};
 
-use super::{hittable::HitRecord, Hittable};
+use super::{hittable::HitRecord, Geometry};
 
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
 }
 
-impl Hittable for Sphere {
+impl Geometry for Sphere {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<super::hittable::HitRecord> {
         let oc = ray.orig.0 - self.center.0;
         let a = ray.direction.length_squared();
@@ -27,11 +27,8 @@ impl Hittable for Sphere {
             }
         }
         let point = ray.at(root);
+        let normal = (point.0 - self.center.0).scale(1.0 / self.radius);
 
-        Some(HitRecord {
-            t: root,
-            point,
-            normal: (point.0 - self.center.0).scale(1.0 / self.radius),
-        })
+        Some(HitRecord::new(ray, point, normal, root))
     }
 }

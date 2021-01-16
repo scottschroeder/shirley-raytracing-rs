@@ -9,13 +9,18 @@ pub mod util {
 pub mod camera;
 pub mod objects {
     mod hittable;
+    pub mod scene;
     pub mod sphere;
-    pub use hittable::Hittable;
+    pub use hittable::Geometry;
 }
 pub mod image;
 
-use objects::Hittable;
+use objects::{scene::Scene, Geometry};
 use util::{Color, Ray, Vec3};
+
+const DEFAULT_WIDTH: &str = "640";
+const DEFAULT_SAMPLES: &str = "100";
+const DEFAULT_OUTPUT: &str = "out.png";
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -47,12 +52,8 @@ fn skybox(r: &Ray) -> Color {
     Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
 }
 
-fn ray_color(ray: &Ray) -> Color {
-    let s = objects::sphere::Sphere {
-        center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
-        radius: 0.5,
-    };
-    if let Some(r) = s.hit(ray, 0.0, 1000000000.0) {
+fn ray_color(ray: &Ray, scene: &Scene) -> Color {
+    if let Some(r) = scene.hit(ray, 0.0, std::f64::INFINITY) {
         Color((Vec3::new(1.0, 1.0, 1.0) + r.normal).scale(0.5))
     } else {
         skybox(ray)
@@ -60,41 +61,73 @@ fn ray_color(ray: &Ray) -> Color {
 }
 
 fn render_image(args: &clap::ArgMatches) -> Result<()> {
+    use rand::prelude::*;
     use rayon::prelude::*;
 
-    let width = if let Some(w) = args.value_of("width") {
-        w.parse::<usize>()?
-    } else {
-        256
-    };
-
-    let output = args.value_of("output").unwrap_or("out.png");
+    let width = args.value_of("width").unwrap().parse::<usize>()?;
+    let output = args.value_of("output").unwrap();
+    let mut samples = args.value_of("samples").unwrap().parse::<usize>()?;
+    if samples == 0 {
+        log::warn!("samples set to 0, using 1");
+        samples = 1;
+    }
 
     let mut camera = camera::CameraBuilder::default();
     camera.width(width).aspect_ratio((16, 9));
     let camera = camera.build()?;
 
     let mut image = image::Image::from_dimm(camera.dimm);
-
+    image.samples = samples;
+    let scene = create_scene();
     log::trace!("render");
     image
         .scanlines_mut()
         .into_par_iter()
         .enumerate()
-        .for_each(|(j, line)| {
-            for i in 0..camera.dimm.width {
-                let r = camera.pixel_ray(i, j);
-                let c = ray_color(&r);
-                line[i] = c
-            }
-        });
+        .for_each_init(
+            || rand::thread_rng(),
+            |rng, (j, line)| {
+                for i in 0..camera.dimm.width {
+                    let mut c = Color::default();
+                    for _ in 0..samples {
+                        let r = camera
+                            .pixel_ray(i as f64 + rng.gen::<f64>(), j as f64 + rng.gen::<f64>());
+                        c += ray_color(&r, &scene);
+                    }
+                    line[i] = c
+                }
+            },
+        );
 
     image::to_image(&image, output);
     Ok(())
 }
 
+fn create_scene() -> Scene {
+    let mut scene = Scene::default();
+    scene.add(objects::sphere::Sphere {
+        center: util::Point(Vec3::new(0.0, -100.5, -1.0)),
+        radius: 100.0,
+    });
+    scene.add(objects::sphere::Sphere {
+        center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
+        radius: 0.5,
+    });
+    // scene.add(objects::sphere::Sphere {
+    //     center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+    //     radius: 0.3,
+    // });
+    // scene.add(objects::sphere::Sphere {
+    //     center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
+    //     radius: 0.3,
+    // });
+    scene
+}
+
 mod cli {
     use clap::SubCommand;
+
+    use crate::{DEFAULT_OUTPUT, DEFAULT_SAMPLES, DEFAULT_WIDTH};
 
     pub fn setup_logger(level: u64) {
         let mut builder = pretty_env_logger::formatted_timed_builder();
@@ -138,11 +171,20 @@ mod cli {
                         clap::Arg::with_name("width")
                             .short("w")
                             .takes_value(true)
+                            .default_value(DEFAULT_WIDTH)
                             .help("sets the pixel width"),
+                    )
+                    .arg(
+                        clap::Arg::with_name("samples")
+                            .takes_value(true)
+                            .short("s")
+                            .default_value(DEFAULT_SAMPLES)
+                            .help("number of samples per pixel"),
                     )
                     .arg(
                         clap::Arg::with_name("output")
                             .short("o")
+                            .default_value(DEFAULT_OUTPUT)
                             .takes_value(true)
                             .help("path for output image"),
                     ),
