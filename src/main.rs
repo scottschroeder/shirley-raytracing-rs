@@ -1,7 +1,6 @@
-use anyhow::Result;
-
 pub mod util {
     mod color;
+    pub mod math;
     mod vec3;
     pub use color::Color;
     pub use vec3::{random_in_unit_sphere, random_unit_vector, Point, Ray, Vec3};
@@ -16,6 +15,11 @@ pub mod objects {
 }
 pub mod image;
 
+use crate::objects::{
+    material::{Dielectric, Lambertian, Metal},
+    sphere::Sphere,
+};
+use anyhow::Result;
 use objects::{scene::Scene, Hittable};
 use util::{Color, Ray, Vec3};
 
@@ -113,21 +117,16 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 }
 
 fn create_scene() -> Scene {
-    use crate::objects::{
-        material::{Lambertian, Metal},
-        sphere::Sphere,
-    };
-
     let mut scene = Scene::default();
 
     let mat_ground = Lambertian {
         albedo: Color(Vec3::new(0.8, 0.8, 0.0)),
     };
     let mat_center = Lambertian {
-        albedo: Color(Vec3::new(0.7, 0.3, 0.3)),
+        albedo: Color(Vec3::new(0.1, 0.2, 0.5)),
     };
-    let mat_left = Metal::new(Color(Vec3::new(0.8, 0.8, 0.8)), Some(0.3));
-    let mat_right = Metal::new(Color(Vec3::new(0.8, 0.6, 0.2)), Some(1.0));
+    let mat_left = Dielectric { ir: 1.5 };
+    let mat_right = Metal::new(Color(Vec3::new(0.8, 0.6, 0.2)), Some(0.0));
 
     scene.add(
         Sphere {
@@ -147,6 +146,13 @@ fn create_scene() -> Scene {
         Sphere {
             center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
             radius: 0.5,
+        },
+        mat_left.clone(),
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+            radius: -0.4,
         },
         mat_left,
     );

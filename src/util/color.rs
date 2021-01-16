@@ -13,6 +13,12 @@ impl Default for Color {
     }
 }
 
+impl Color {
+    pub fn ones() -> Color {
+        Color(Vec3::new(1.0, 1.0, 1.0))
+    }
+}
+
 impl ops::AddAssign for Color {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0

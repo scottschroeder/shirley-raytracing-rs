@@ -1,3 +1,4 @@
+use crate::util::math::fmin_one;
 use rand::prelude::{Rng, ThreadRng};
 use std::ops;
 
@@ -89,6 +90,14 @@ impl Vec3 {
     #[inline]
     pub fn reflect(&self, normal: &Vec3) -> Vec3 {
         *self - normal.scale(2.0 * self.dot(normal))
+    }
+
+    pub fn refract(&self, normal: &Vec3, etai_over_etat: Real) -> Vec3 {
+        let cos_theta = fmin_one(self.scale(-1.0).dot(normal));
+        let r_out_perp = (normal.scale(cos_theta) + *self).scale(etai_over_etat);
+        let r_out_parallel_mag = (1.0 - r_out_perp.length_squared()).abs().sqrt() * -1.0;
+        let r_out_parallel = normal.scale(r_out_parallel_mag);
+        r_out_perp + r_out_parallel
     }
 
     #[inline]
