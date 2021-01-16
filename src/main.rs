@@ -14,6 +14,7 @@ pub mod objects {
 }
 pub mod image;
 
+use objects::Hittable;
 use util::{Color, Ray, Vec3};
 
 fn main() -> Result<()> {
@@ -47,10 +48,12 @@ fn skybox(r: &Ray) -> Color {
 }
 
 fn ray_color(ray: &Ray) -> Color {
-    let s = util::Point(Vec3::new(0.0, 0.0, -1.0));
-    if let Some(t) = objects::sphere::hit_sphere(s, 0.5, ray) {
-        let norm = (ray.at(t).0 - Vec3::new(0.0, 0.0, -1.0)).unit();
-        Color((Vec3::new(1.0, 1.0, 1.0) + norm).scale(0.5))
+    let s = objects::sphere::Sphere {
+        center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
+        radius: 0.5,
+    };
+    if let Some(r) = s.hit(ray, 0.0, 1000000000.0) {
+        Color((Vec3::new(1.0, 1.0, 1.0) + r.normal).scale(0.5))
     } else {
         skybox(ray)
     }
