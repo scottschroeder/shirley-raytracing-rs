@@ -4,11 +4,12 @@ pub mod util {
     mod color;
     mod vec3;
     pub use color::Color;
-    pub use vec3::Vec3;
+    pub use vec3::{Point, Ray, Vec3};
 }
+pub mod camera;
 pub mod image;
 
-use util::{Color, Vec3};
+use util::{Color, Ray, Vec3};
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -17,7 +18,7 @@ fn main() -> Result<()> {
     log::trace!("Args: {:?}", args);
 
     match args.subcommand() {
-        ("test", Some(sub_m)) => test_fn(sub_m),
+        ("render", Some(sub_m)) => render_image(sub_m),
         ("", _) => Err(anyhow::anyhow!(
             "Please provide a command:\n{}",
             args.usage()
@@ -34,24 +35,39 @@ fn main() -> Result<()> {
     })
 }
 
-fn test_fn(_args: &clap::ArgMatches) -> Result<()> {
+fn skybox(r: &Ray) -> Color {
+    let unit = r.direction.unit();
+    let t = 0.5f64 * (unit.y() + 1f64);
+    Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
+}
+
+fn render_image(args: &clap::ArgMatches) -> Result<()> {
     use std::io::Write;
 
-    let image_width = 256;
-    let image_height = 256;
+    let width = if let Some(w) = args.value_of("width") {
+        w.parse::<usize>()?
+    } else {
+        256
+    };
+
+    let mut camera = camera::CameraBuilder::default();
+    camera.width(width).aspect_ratio((16, 9));
+    let camera = camera.build()?;
 
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
 
-    write!(output, "P3\n{} {}\n255\n", image_width, image_height)?;
+    write!(
+        output,
+        "P3\n{} {}\n255\n",
+        camera.dimm.width, camera.dimm.height
+    )?;
 
-    for j in (0..image_height).rev() {
+    for j in (0..camera.dimm.height).rev() {
         log::trace!("scanlines remaining: {}", j);
-        for i in 0..image_width {
-            let r = (i as f64) / (image_width - 1) as f64;
-            let g = (j as f64) / (image_height - 1) as f64;
-            let b = 0.25f64;
-            let c = Color(Vec3::new(r, g, b));
+        for i in 0..camera.dimm.width {
+            let r = camera.pixel_ray(i, j);
+            let c = skybox(&r);
 
             image::write_ppm_pixel(&mut output, &c)?;
             writeln!(output, "")?;
@@ -101,7 +117,14 @@ mod cli {
                     .global(true)
                     .help("Sets the level of verbosity"),
             )
-            .subcommand(SubCommand::with_name("test"))
+            .subcommand(
+                SubCommand::with_name("render").arg(
+                    clap::Arg::with_name("width")
+                        .short("w")
+                        .takes_value(true)
+                        .help("sets the pixel width"),
+                ),
+            )
             .get_matches()
     }
 }

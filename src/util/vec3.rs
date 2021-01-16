@@ -98,15 +98,29 @@ impl ops::SubAssign for Vec3 {
     }
 }
 
-struct Point(pub Vec3);
+#[derive(Debug, Clone, Copy)]
+pub struct Point(pub Vec3);
 
-struct Ray {
-    orig: Point,
-    dir: Vec3,
+impl Default for Point {
+    fn default() -> Self {
+        Point(Vec3::new(0.0, 0.0, 0.0))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Ray {
+    pub orig: Point,
+    pub direction: Vec3,
 }
 
 impl Ray {
+    pub fn new(orig: Point, dir: Vec3) -> Ray {
+        Ray {
+            orig,
+            direction: dir,
+        }
+    }
     pub fn at(&self, t: Real) -> Point {
-        Point(self.orig.0 + self.dir.scale(t))
+        Point(self.orig.0 + self.direction.scale(t))
     }
 }
