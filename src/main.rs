@@ -8,7 +8,9 @@ pub mod util {
 }
 pub mod camera;
 pub mod objects {
+    mod hittable;
     pub mod sphere;
+    pub use hittable::Hittable;
 }
 pub mod image;
 
@@ -55,7 +57,7 @@ fn ray_color(ray: &Ray) -> Color {
 }
 
 fn render_image(args: &clap::ArgMatches) -> Result<()> {
-    use std::io::Write;
+    use rayon::prelude::*;
 
     let width = if let Some(w) = args.value_of("width") {
         w.parse::<usize>()?
@@ -63,30 +65,33 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
         256
     };
 
+    let output = args.value_of("output").unwrap_or("out.png");
+
     let mut camera = camera::CameraBuilder::default();
     camera.width(width).aspect_ratio((16, 9));
     let camera = camera.build()?;
 
-    let stdout = std::io::stdout();
-    let mut output = stdout.lock();
+    let mut image = image::Image::from_dimm(camera.dimm);
 
-    write!(
-        output,
-        "P3\n{} {}\n255\n",
-        camera.dimm.width, camera.dimm.height
-    )?;
+    image
+        .scanlines_mut()
+        .into_par_iter()
+        .enumerate()
+        .for_each(|(j, line)| {
+            for i in 0..camera.dimm.width {
+                let r = camera.pixel_ray(i, j);
+                let c = ray_color(&r);
 
-    for j in (0..camera.dimm.height).rev() {
-        log::trace!("scanlines remaining: {}", j);
-        for i in 0..camera.dimm.width {
-            let r = camera.pixel_ray(i, j);
-            let c = ray_color(&r);
+                line[i] = c;
+            }
+        });
 
-            image::write_ppm_pixel(&mut output, &c)?;
-            writeln!(output, "")?;
-        }
-    }
-    log::info!("done");
+    image::to_image(&image, output);
+    // let stdout = std::io::stdout();
+    // let mut output = stdout.lock();
+    // log::debug!("write image");
+    // image::write_ppm_image(&mut output, &image)?;
+    // log::info!("done");
 
     Ok(())
 }
@@ -131,12 +136,19 @@ mod cli {
                     .help("Sets the level of verbosity"),
             )
             .subcommand(
-                SubCommand::with_name("render").arg(
-                    clap::Arg::with_name("width")
-                        .short("w")
-                        .takes_value(true)
-                        .help("sets the pixel width"),
-                ),
+                SubCommand::with_name("render")
+                    .arg(
+                        clap::Arg::with_name("width")
+                            .short("w")
+                            .takes_value(true)
+                            .help("sets the pixel width"),
+                    )
+                    .arg(
+                        clap::Arg::with_name("output")
+                            .short("o")
+                            .takes_value(true)
+                            .help("path for output image"),
+                    ),
             )
             .get_matches()
     }

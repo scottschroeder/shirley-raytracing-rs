@@ -23,7 +23,7 @@ impl CameraBuilder {
         self
     }
     pub fn build(self) -> Result<Camera> {
-        let (dimm, ratio) = Image::from_two_of_three(self.height, self.width, self.ratio)?;
+        let (dimm, ratio) = Dimmensions::from_two_of_three(self.height, self.width, self.ratio)?;
         let width = ratio.as_float() * VIEWPORT_HEIGHT;
         Ok(Camera {
             position: self.position.unwrap_or_else(|| Point::default()),
@@ -39,7 +39,7 @@ pub struct Camera {
     position: Point,
     width: f64,
     focal_length: f64,
-    pub dimm: Image,
+    pub dimm: Dimmensions,
 }
 
 impl Camera {
@@ -61,7 +61,7 @@ impl Camera {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Image {
+pub struct Dimmensions {
     pub width: usize,
     pub height: usize,
 }
@@ -93,22 +93,22 @@ impl From<f64> for AspectRatio {
     }
 }
 
-impl Image {
-    pub fn from_aspect_ratio<A: Into<AspectRatio>>(width: usize, ratio: A) -> Image {
+impl Dimmensions {
+    pub fn from_aspect_ratio<A: Into<AspectRatio>>(width: usize, ratio: A) -> Dimmensions {
         let ratio = ratio.into().as_float();
         let height = ((width as f64) / ratio) as usize;
-        Image { width, height }
+        Dimmensions { width, height }
     }
 
     fn from_two_of_three(
         height: Option<usize>,
         width: Option<usize>,
         ratio: Option<AspectRatio>,
-    ) -> Result<(Image, AspectRatio)> {
+    ) -> Result<(Dimmensions, AspectRatio)> {
         Ok(match (height, width, ratio) {
             (None, Some(w), Some(r)) => {
                 let h = ((w as f64) / r.as_float()) as usize;
-                let img = Image {
+                let img = Dimmensions {
                     width: w,
                     height: h,
                 };
@@ -116,14 +116,14 @@ impl Image {
             }
             (Some(h), None, Some(r)) => {
                 let w = (h as f64 * r.as_float()) as usize;
-                let img = Image {
+                let img = Dimmensions {
                     width: w,
                     height: h,
                 };
                 (img, r)
             }
             (Some(h), Some(w), None) => {
-                let img = Image {
+                let img = Dimmensions {
                     width: w,
                     height: h,
                 };
