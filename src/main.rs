@@ -73,6 +73,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 
     let mut image = image::Image::from_dimm(camera.dimm);
 
+    log::trace!("render");
     image
         .scanlines_mut()
         .into_par_iter()
@@ -81,18 +82,11 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
             for i in 0..camera.dimm.width {
                 let r = camera.pixel_ray(i, j);
                 let c = ray_color(&r);
-
-                line[i] = c;
+                line[i] = c
             }
         });
 
     image::to_image(&image, output);
-    // let stdout = std::io::stdout();
-    // let mut output = stdout.lock();
-    // log::debug!("write image");
-    // image::write_ppm_image(&mut output, &image)?;
-    // log::info!("done");
-
     Ok(())
 }
 
