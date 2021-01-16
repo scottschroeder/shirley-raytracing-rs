@@ -46,8 +46,9 @@ fn skybox(r: &Ray) -> Color {
 
 fn ray_color(ray: &Ray) -> Color {
     let s = util::Point(Vec3::new(0.0, 0.0, -1.0));
-    if objects::sphere::hit_sphere(s, 0.5, ray) {
-        Color(Vec3::new(1.0, 0.0, 0.0))
+    if let Some(t) = objects::sphere::hit_sphere(s, 0.5, ray) {
+        let norm = (ray.at(t).0 - Vec3::new(0.0, 0.0, -1.0)).unit();
+        Color((Vec3::new(1.0, 1.0, 1.0) + norm).scale(0.5))
     } else {
         skybox(ray)
     }
