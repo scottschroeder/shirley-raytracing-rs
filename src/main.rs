@@ -20,8 +20,9 @@ use crate::objects::{
     sphere::Sphere,
 };
 use anyhow::Result;
-use camera::CameraPosition;
+use camera::{Camera, CameraPosition};
 use objects::{scene::Scene, Hittable};
+use rand::prelude::ThreadRng;
 use util::{math::random_real, Color, Point, Ray, Vec3};
 
 const DEFAULT_WIDTH: &str = "640";
@@ -74,8 +75,14 @@ fn ray_color(ray: &Ray, scene: &Scene, max_depth: usize) -> Color {
     }
 }
 
+struct Frame<'a> {
+    camera: &'a Camera,
+    pos: &'a CameraPosition,
+    scene: &'a Scene,
+    samples: usize,
+}
+
 fn render_image(args: &clap::ArgMatches) -> Result<()> {
-    use rand::prelude::*;
     use rayon::prelude::*;
 
     let width = args.value_of("width").unwrap().parse::<usize>()?;
@@ -112,31 +119,53 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
     } else {
         create_scene()
     };
+
+    let frame = Frame {
+        camera: &camera,
+        pos: &pos,
+        scene: &scene,
+        samples,
+    };
+
     log::trace!("render");
-    image
-        .scanlines_mut()
-        .into_par_iter()
-        .enumerate()
-        .for_each_init(
+
+    let scanlines = image.scanlines_mut();
+
+    if args.is_present("single_threaded") {
+        let mut rng = rand::thread_rng();
+        scanlines
+            .into_iter()
+            .enumerate()
+            .for_each(|(line_idx, buf)| {
+                render_scanline(&frame, &mut rng, line_idx, buf);
+            })
+    } else {
+        scanlines.into_par_iter().enumerate().for_each_init(
             || rand::thread_rng(),
-            |rng, (j, line)| {
-                for i in 0..camera.dimm.width {
-                    let mut c = Color::default();
-                    for _ in 0..samples {
-                        let r = camera.pixel_ray(
-                            &pos,
-                            i as f64 + rng.gen::<f64>(),
-                            j as f64 + rng.gen::<f64>(),
-                        );
-                        c += ray_color(&r, &scene, 50);
-                    }
-                    line[i] = c
-                }
+            |rng, (line_idx, buf)| {
+                render_scanline(&frame, rng, line_idx, buf);
             },
         );
+    }
 
     image::to_image(&image, output);
     Ok(())
+}
+
+fn render_scanline(frame: &Frame<'_>, rng: &mut ThreadRng, line_idx: usize, buf: &mut [Color]) {
+    use rand::prelude::*;
+    for i in 0..frame.camera.dimm.width {
+        let mut c = Color::default();
+        for _ in 0..frame.samples {
+            let r = frame.camera.pixel_ray(
+                &frame.pos,
+                i as f64 + rng.gen::<f64>(),
+                line_idx as f64 + rng.gen::<f64>(),
+            );
+            c += ray_color(&r, &frame.scene, 50);
+        }
+        buf[i] = c
+    }
 }
 
 fn random_scene() -> Scene {
@@ -338,6 +367,11 @@ mod cli {
                         clap::Arg::with_name("random")
                             .long("random")
                             .help("use random scene"),
+                    )
+                    .arg(
+                        clap::Arg::with_name("single_threaded")
+                            .long("single-threaded")
+                            .help("render on a single core"),
                     ),
             )
             .get_matches()
