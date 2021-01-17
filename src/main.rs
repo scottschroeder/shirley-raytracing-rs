@@ -3,7 +3,7 @@ pub mod util {
     pub mod math;
     mod vec3;
     pub use color::Color;
-    pub use vec3::{random_in_unit_sphere, random_unit_vector, Point, Ray, Vec3};
+    pub use vec3::{Point, Ray, Vec3};
 }
 pub mod camera;
 pub mod objects {
@@ -22,7 +22,7 @@ use crate::objects::{
 use anyhow::Result;
 use camera::CameraPosition;
 use objects::{scene::Scene, Hittable};
-use util::{Color, Point, Ray, Vec3};
+use util::{math::random_real, Color, Point, Ray, Vec3};
 
 const DEFAULT_WIDTH: &str = "640";
 const DEFAULT_SAMPLES: &str = "100";
@@ -80,6 +80,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 
     let width = args.value_of("width").unwrap().parse::<usize>()?;
     let output = args.value_of("output").unwrap();
+    let use_random = args.is_present("random");
     let mut samples = args.value_of("samples").unwrap().parse::<usize>()?;
     if samples == 0 {
         log::warn!("samples set to 0, using 1");
@@ -90,21 +91,27 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
     camera
         .vfov(20.0)
         .focal_length(1.0)
+        .aperture(0.1)
         .width(width)
-        .aspect_ratio((16, 9));
+        .aspect_ratio((3, 2));
     let camera = camera.build()?;
-    let pos = CameraPosition::look_at(
-        Point(Vec3::new(-2.0, 2.0, 1.0)),
-        Point(Vec3::new(0.0, 0.0, -1.0)),
+    let mut pos = CameraPosition::look_at(
+        Point(Vec3::new(13.0, 2.0, 3.0)),
+        Point(Vec3::new(0.0, 0.0, 0.0)),
         Vec3::new(0.0, 1.0, 0.0),
     );
+    pos.focus_length = 10.0;
 
     log::trace!("Camera: {:?}", camera);
     log::trace!("Pos: {:?}", pos);
 
     let mut image = image::Image::from_dimm(camera.dimm);
     image.samples = samples;
-    let scene = create_scene();
+    let scene = if use_random {
+        random_scene()
+    } else {
+        create_scene()
+    };
     log::trace!("render");
     image
         .scanlines_mut()
@@ -130,6 +137,79 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 
     image::to_image(&image, output);
     Ok(())
+}
+
+fn random_scene() -> Scene {
+    use rand::prelude::*;
+    let mut scene = Scene::default();
+
+    let mat_ground = Lambertian {
+        albedo: Color(Vec3::new(0.5, 0.5, 0.5)),
+    };
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, -1000.0, 0.0)),
+            radius: 1000.0,
+        },
+        mat_ground,
+    );
+
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, 1.0, 0.0)),
+            radius: 1.0,
+        },
+        Dielectric { ir: 1.5 },
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
+            radius: 1.0,
+        },
+        Lambertian {
+            albedo: Color(Vec3::new(0.4, 0.2, 0.1)),
+        },
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(4.0, 1.0, 0.0)),
+            radius: 1.0,
+        },
+        Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
+    );
+
+    let mut rng = thread_rng();
+    for a in -11..11 {
+        for b in -11..11 {
+            let mat_select = rng.gen::<f64>();
+            let radius = random_real(&mut rng, 0.15, 0.25);
+            let center = Point(Vec3::new(
+                a as f64 + 0.9 * rng.gen::<f64>(),
+                radius,
+                b as f64 + 0.9 * rng.gen::<f64>(),
+            ));
+            let keepout = Vec3::new(3.0, radius, 0.0);
+            if (center.0 - keepout).length() <= 0.9 {
+                continue;
+            }
+            let sphere = Sphere { center, radius };
+            if mat_select < 0.7 {
+                // diffuse
+                let albedo = Color(Vec3::random() * Vec3::random());
+                scene.add(sphere, Lambertian { albedo });
+            } else if mat_select < 0.95 {
+                // metal
+                let albedo = Color(Vec3::random_range(0.5, 1.0));
+                let fuzz = random_real(&mut rng, 0.0, 0.5);
+                scene.add(sphere, Metal::new(albedo, Some(fuzz)));
+            } else {
+                // glass
+                scene.add(sphere, Dielectric { ir: 1.5 });
+            }
+        }
+    }
+
+    scene
 }
 
 fn create_scene() -> Scene {
@@ -253,6 +333,11 @@ mod cli {
                             .default_value(DEFAULT_OUTPUT)
                             .takes_value(true)
                             .help("path for output image"),
+                    )
+                    .arg(
+                        clap::Arg::with_name("random")
+                            .long("random")
+                            .help("use random scene"),
                     ),
             )
             .get_matches()

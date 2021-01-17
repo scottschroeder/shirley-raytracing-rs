@@ -1,6 +1,9 @@
 use crate::{
     objects::hittable::HitRecord,
-    util::{math::fmin_one, random_in_unit_sphere, random_unit_vector, Color, Ray},
+    util::{
+        math::{fmin_one, random_in_unit_sphere, random_unit_vector},
+        Color, Ray,
+    },
 };
 
 #[derive(Debug, Clone)]

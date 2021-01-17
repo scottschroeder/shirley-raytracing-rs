@@ -1,4 +1,4 @@
-use crate::util::{Point, Ray, Vec3};
+use crate::util::{math::random_in_unit_disk, Point, Ray, Vec3};
 use anyhow::Result;
 
 const DEFAULT_FOCAL_LENGTH: f64 = 1.0;
@@ -13,6 +13,7 @@ pub struct CameraBuilder {
     height: Option<usize>,
     width: Option<usize>,
     focal_length: Option<f64>,
+    aperture: Option<f64>,
     vfov: Option<f64>,
     ratio: Option<AspectRatio>,
 }
@@ -20,6 +21,10 @@ pub struct CameraBuilder {
 impl CameraBuilder {
     pub fn vfov(&mut self, vfov: f64) -> &mut Self {
         self.vfov = Some(vfov);
+        self
+    }
+    pub fn aperture(&mut self, aperture: f64) -> &mut Self {
+        self.aperture = Some(aperture);
         self
     }
     pub fn focal_length(&mut self, focal_length: f64) -> &mut Self {
@@ -41,11 +46,13 @@ impl CameraBuilder {
         let height = 2.0 * h;
         // let height = 1.0;
         let width = ratio.as_float() * height;
+        let lens_radius = self.aperture.map(|a| a / 2.0);
 
         Ok(Camera {
             height,
             width,
             focal_length: self.focal_length.unwrap_or(DEFAULT_FOCAL_LENGTH),
+            lens_radius,
             dimm,
         })
     }
@@ -54,6 +61,7 @@ impl CameraBuilder {
 #[derive(Debug, Clone, Copy)]
 pub struct CameraPosition {
     origin: Point,
+    pub focus_length: f64,
     w: Vec3,
     u: Vec3,
     v: Vec3,
@@ -61,11 +69,13 @@ pub struct CameraPosition {
 
 impl CameraPosition {
     pub fn look_at(camera: Point, target: Point, up: Vec3) -> CameraPosition {
-        let w = (camera.0 - target.0).unit();
+        let mut w: Vec3 = camera.0 - target.0;
+        let focus_length = w.unit_mut();
         let u = up.cross(&w).unit();
         let v = w.cross(&u);
         CameraPosition {
             origin: camera,
+            focus_length,
             w,
             u,
             v,
@@ -77,6 +87,7 @@ impl CameraPosition {
 pub struct Camera {
     height: f64,
     width: f64,
+    lens_radius: Option<f64>,
     focal_length: f64,
     pub dimm: Dimmensions,
 }
@@ -86,12 +97,13 @@ impl Camera {
         let x_percent = x / (self.dimm.width as f64);
         let y_percent = y / (self.dimm.height as f64);
 
-        let horizontal = pos.u.scale(self.width);
-        let vertical = pos.v.scale(self.height);
+        let horizontal = pos.u.scale(self.width * pos.focus_length);
+        let vertical = pos.v.scale(self.height * pos.focus_length);
+
         let lower_left: Vec3 = pos.origin.0
             - horizontal.scale(0.5)
             - vertical.scale(0.5)
-            - pos.w.scale(self.focal_length);
+            - pos.w.scale(self.focal_length * pos.focus_length);
 
         // let direction = Vec3::new(
         //     (2.0 * x_percent - 1.0) * self.width,
@@ -99,11 +111,19 @@ impl Camera {
         //     -self.focal_length,
         // );
 
-        let direction: Vec3 =
-            lower_left + horizontal.scale(x_percent) + vertical.scale(y_percent) - pos.origin.0;
+        let offset = if let Some(lens_r) = self.lens_radius {
+            let rd = random_in_unit_disk().scale(lens_r);
+            pos.u.scale(rd.x()) + pos.v.scale(rd.y())
+        } else {
+            Vec3::default()
+        };
+
+        let direction: Vec3 = lower_left + horizontal.scale(x_percent) + vertical.scale(y_percent)
+            - pos.origin.0
+            - offset;
 
         Ray {
-            orig: pos.origin,
+            orig: Point(pos.origin.0 + offset),
             direction,
         }
     }

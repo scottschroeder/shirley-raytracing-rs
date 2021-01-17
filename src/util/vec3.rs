@@ -1,8 +1,5 @@
-use crate::util::math::fmin_one;
-use rand::prelude::{Rng, ThreadRng};
+use crate::util::math::{fmin_one, random_real, Real};
 use std::ops;
-
-type Real = f64;
 
 const NEAR_ZERO: f64 = 1e-8;
 
@@ -11,24 +8,10 @@ pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
 }
 
-#[inline]
-fn random_real(rng: &mut ThreadRng, min: Real, max: Real) -> Real {
-    min + (max - min) * rng.gen::<Real>()
-}
-
-pub fn random_in_unit_sphere() -> Vec3 {
-    loop {
-        let p = Vec3::random_range(-1.0, 1.0);
-        if p.length_squared() <= 1.0 {
-            return p;
-        }
+impl Default for Vec3 {
+    fn default() -> Self {
+        Vec3::new(0.0, 0.0, 0.0)
     }
-}
-
-pub fn random_unit_vector() -> Vec3 {
-    let mut v = random_in_unit_sphere();
-    v.unit_mut();
-    v
 }
 
 impl Vec3 {
