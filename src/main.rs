@@ -59,20 +59,24 @@ fn skybox(r: &Ray) -> Color {
     Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
 }
 
-fn ray_color(ray: &Ray, scene: &Scene, max_depth: usize) -> Color {
-    if max_depth == 0 {
-        return Color::default();
-    }
-    if let Some((obj, r)) = scene.hit(ray, 0.001, std::f64::INFINITY) {
-        if let Some(scatter) = obj.material.scatter(ray, &r) {
-            let next = ray_color(&scatter.direction, scene, max_depth - 1);
-            Color(scatter.attenuation.0 * next.0)
+fn ray_color(incoming: &Ray, scene: &Scene, mut max_depth: usize) -> Color {
+    let mut ray = *incoming;
+    let mut attenuation = Color::ones();
+
+    while max_depth > 0 {
+        if let Some((obj, r)) = scene.hit(&ray, 0.001, std::f64::INFINITY) {
+            if let Some(scatter) = obj.material.scatter(&ray, &r) {
+                attenuation = Color(attenuation.0 * scatter.attenuation.0);
+                ray = scatter.direction;
+            } else {
+                attenuation = Color::default();
+            }
         } else {
-            Color::default()
+            return Color(attenuation.0 * skybox(&ray).0);
         }
-    } else {
-        skybox(ray)
+        max_depth -= 1
     }
+    Color::default()
 }
 
 struct Frame<'a> {
