@@ -20,8 +20,9 @@ use crate::objects::{
     sphere::Sphere,
 };
 use anyhow::Result;
+use camera::CameraPosition;
 use objects::{scene::Scene, Hittable};
-use util::{Color, Ray, Vec3};
+use util::{Color, Point, Ray, Vec3};
 
 const DEFAULT_WIDTH: &str = "640";
 const DEFAULT_SAMPLES: &str = "100";
@@ -86,8 +87,20 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
     }
 
     let mut camera = camera::CameraBuilder::default();
-    camera.focal_length(1.3).width(width).aspect_ratio((16, 9));
+    camera
+        .vfov(20.0)
+        .focal_length(1.0)
+        .width(width)
+        .aspect_ratio((16, 9));
     let camera = camera.build()?;
+    let pos = CameraPosition::look_at(
+        Point(Vec3::new(-2.0, 2.0, 1.0)),
+        Point(Vec3::new(0.0, 0.0, -1.0)),
+        Vec3::new(0.0, 1.0, 0.0),
+    );
+
+    log::trace!("Camera: {:?}", camera);
+    log::trace!("Pos: {:?}", pos);
 
     let mut image = image::Image::from_dimm(camera.dimm);
     image.samples = samples;
@@ -103,8 +116,11 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
                 for i in 0..camera.dimm.width {
                     let mut c = Color::default();
                     for _ in 0..samples {
-                        let r = camera
-                            .pixel_ray(i as f64 + rng.gen::<f64>(), j as f64 + rng.gen::<f64>());
+                        let r = camera.pixel_ray(
+                            &pos,
+                            i as f64 + rng.gen::<f64>(),
+                            j as f64 + rng.gen::<f64>(),
+                        );
                         c += ray_color(&r, &scene, 50);
                     }
                     line[i] = c
