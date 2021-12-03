@@ -3,9 +3,31 @@ use std::ops;
 
 const NEAR_ZERO: f64 = 1e-8;
 
+pub const EACH_DIMM: [D; 3] = [D::X, D::Y, D::Z];
+
+#[derive(Debug, Clone, Copy)]
+pub enum D {
+    X,
+    Y,
+    Z,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
+}
+
+impl ops::Index<D> for Vec3 {
+    type Output = Real;
+
+    #[inline]
+    fn index(&self, index: D) -> &Self::Output {
+        match index {
+            D::X => &self.vec.x,
+            D::Y => &self.vec.y,
+            D::Z => &self.vec.z,
+        }
+    }
 }
 
 impl Default for Vec3 {
@@ -15,6 +37,7 @@ impl Default for Vec3 {
 }
 
 impl Vec3 {
+    #[inline]
     pub fn new(x: Real, y: Real, z: Real) -> Vec3 {
         Vec3 {
             vec: nalgebra::Vector3::new(x, y, z),

@@ -3,7 +3,7 @@ pub mod util {
     pub mod math;
     mod vec3;
     pub use color::Color;
-    pub use vec3::{Point, Ray, Vec3};
+    pub use vec3::{Point, Ray, Vec3, D, EACH_DIMM};
 }
 pub mod camera;
 pub mod objects {
@@ -11,7 +11,9 @@ pub mod objects {
     pub mod material;
     pub mod scene;
     pub mod sphere;
+    mod aabb;
     pub use hittable::{Geometry, Hittable};
+    pub use aabb::Aabb;
 }
 pub mod image;
 
@@ -215,7 +217,7 @@ fn random_scene() -> Scene {
     for a in -11..11 {
         for b in -11..11 {
             let mat_select = rng.gen::<f64>();
-            let radius = random_real(&mut rng, 0.15, 0.25);
+            let radius = random_real(&mut rng, 0.05, 0.25);
             let center = Point(Vec3::new(
                 a as f64 + 0.9 * rng.gen::<f64>(),
                 radius,

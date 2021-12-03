@@ -1,6 +1,5 @@
-use crate::util::{Point, Ray};
-
-use super::{hittable::HitRecord, Geometry};
+use super::{hittable::HitRecord, Aabb, Geometry};
+use crate::util::{Point, Ray, Vec3};
 
 pub struct Sphere {
     pub center: Point,
@@ -30,5 +29,13 @@ impl Geometry for Sphere {
         let normal = (point.0 - self.center.0).scale(1.0 / self.radius);
 
         Some(HitRecord::new(ray, point, normal, root))
+    }
+
+    fn bounding_box(&self) -> Option<super::Aabb> {
+        let r = Vec3::new(self.radius, self.radius, self.radius);
+        Some(Aabb {
+            min: Point(self.center.0 - r),
+            max: Point(self.center.0 + r),
+        })
     }
 }
