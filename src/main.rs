@@ -7,15 +7,17 @@ pub mod util {
 }
 pub mod camera;
 pub mod objects {
+    mod aabb;
     mod hittable;
     pub mod material;
     pub mod scene;
     pub mod sphere;
-    mod aabb;
-    pub use hittable::{Geometry, Hittable};
     pub use aabb::Aabb;
+    pub use hittable::{Geometry, Hittable};
 }
 pub mod image;
+
+mod argparse;
 
 use crate::objects::{
     material::{Dielectric, Lambertian, Metal},
@@ -33,21 +35,13 @@ const DEFAULT_OUTPUT: &str = "out.png";
 
 fn main() -> Result<()> {
     color_backtrace::install();
-    let args = cli::get_args();
-    cli::setup_logger(args.occurrences_of("verbosity"));
+    let args = argparse::get_args();
+    setup_logger(args.verbose);
     log::trace!("Args: {:?}", args);
 
-    match args.subcommand() {
-        ("render", Some(sub_m)) => render_image(sub_m),
-        ("", _) => Err(anyhow::anyhow!(
-            "Please provide a command:\n{}",
-            args.usage()
-        )),
-        subc => Err(anyhow::anyhow!(
-            "Unknown command: {:?}\n{}",
-            subc,
-            args.usage()
-        )),
+    match &args.subcmd {
+        argparse::SubCommand::Render(sub) => render_image(sub),
+        argparse::SubCommand::Test(sub) => run_test(sub),
     }
     .map_err(|e| {
         log::error!("{:?}", e);
@@ -88,17 +82,24 @@ struct Frame<'a> {
     samples: usize,
 }
 
-fn render_image(args: &clap::ArgMatches) -> Result<()> {
+fn run_test(args: &argparse::Test) -> Result<()> {
+    log::error!("there is nothing to test!");
+    Ok(())
+}
+
+fn render_image(args: &argparse::Render) -> Result<()> {
     use rayon::prelude::*;
 
-    let width = args.value_of("width").unwrap().parse::<usize>()?;
-    let output = args.value_of("output").unwrap();
-    let use_random = args.is_present("random");
-    let mut samples = args.value_of("samples").unwrap().parse::<usize>()?;
-    if samples == 0 {
+    let width = args.width;
+    let output = args.output.as_str();
+    let use_random = args.random;
+
+    let samples = if args.samples == 0 {
         log::warn!("samples set to 0, using 1");
-        samples = 1;
-    }
+        1
+    } else {
+        args.samples
+    };
 
     let mut camera = camera::CameraBuilder::default();
     camera
@@ -137,7 +138,7 @@ fn render_image(args: &clap::ArgMatches) -> Result<()> {
 
     let scanlines = image.scanlines_mut();
 
-    if args.is_present("single_threaded") {
+    if args.single_threaded {
         let mut rng = rand::thread_rng();
         scanlines
             .into_iter()
@@ -305,81 +306,26 @@ fn create_scene() -> Scene {
     scene
 }
 
-mod cli {
-    use clap::SubCommand;
+pub fn setup_logger(level: u8) {
+    let mut builder = pretty_env_logger::formatted_timed_builder();
 
-    use crate::{DEFAULT_OUTPUT, DEFAULT_SAMPLES, DEFAULT_WIDTH};
+    let noisy_modules: &[&str] = &[];
 
-    pub fn setup_logger(level: u64) {
-        let mut builder = pretty_env_logger::formatted_timed_builder();
+    let log_level = match level {
+        //0 => log::Level::Error,
+        0 => log::LevelFilter::Warn,
+        1 => log::LevelFilter::Info,
+        2 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
 
-        let noisy_modules: &[&str] = &[];
-
-        let log_level = match level {
-            //0 => log::Level::Error,
-            0 => log::LevelFilter::Warn,
-            1 => log::LevelFilter::Info,
-            2 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
-        };
-
-        if level > 1 && level < 4 {
-            for module in noisy_modules {
-                builder.filter_module(module, log::LevelFilter::Info);
-            }
+    if level > 1 && level < 4 {
+        for module in noisy_modules {
+            builder.filter_module(module, log::LevelFilter::Info);
         }
-
-        builder.filter_level(log_level);
-        builder.format_timestamp_millis();
-        builder.init();
     }
 
-    pub fn get_args() -> clap::ArgMatches<'static> {
-        clap::App::new(clap::crate_name!())
-            .version(clap::crate_version!())
-            .about(clap::crate_description!())
-            .setting(clap::AppSettings::DeriveDisplayOrder)
-            .arg(
-                clap::Arg::with_name("verbosity")
-                    .short("v")
-                    .multiple(true)
-                    .global(true)
-                    .help("Sets the level of verbosity"),
-            )
-            .subcommand(
-                SubCommand::with_name("render")
-                    .arg(
-                        clap::Arg::with_name("width")
-                            .short("w")
-                            .takes_value(true)
-                            .default_value(DEFAULT_WIDTH)
-                            .help("sets the pixel width"),
-                    )
-                    .arg(
-                        clap::Arg::with_name("samples")
-                            .takes_value(true)
-                            .short("s")
-                            .default_value(DEFAULT_SAMPLES)
-                            .help("number of samples per pixel"),
-                    )
-                    .arg(
-                        clap::Arg::with_name("output")
-                            .short("o")
-                            .default_value(DEFAULT_OUTPUT)
-                            .takes_value(true)
-                            .help("path for output image"),
-                    )
-                    .arg(
-                        clap::Arg::with_name("random")
-                            .long("random")
-                            .help("use random scene"),
-                    )
-                    .arg(
-                        clap::Arg::with_name("single_threaded")
-                            .long("single-threaded")
-                            .help("render on a single core"),
-                    ),
-            )
-            .get_matches()
-    }
+    builder.filter_level(log_level);
+    builder.format_timestamp_millis();
+    builder.init();
 }
