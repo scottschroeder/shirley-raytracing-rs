@@ -1,5 +1,6 @@
-use crate::util::{Point, Ray, Vec3, EACH_DIMM};
 use std::cmp::Ordering;
+
+use crate::util::{Point, Ray, Vec3, EACH_DIMM};
 
 fn fmin(a: f64, b: f64) -> f64 {
     match a.partial_cmp(&b) {
@@ -26,12 +27,12 @@ fn non_nan(a: f64, b: f64) -> f64 {
 }
 
 pub fn surrounding_box(lhs: &Aabb, rhs: &Aabb) -> Aabb {
-    let small = Vec3::new (
+    let small = Vec3::new(
         fmin(lhs.min.0.x(), rhs.min.0.x()),
         fmin(lhs.min.0.y(), rhs.min.0.y()),
         fmin(lhs.min.0.z(), rhs.min.0.z()),
     );
-    let large = Vec3::new (
+    let large = Vec3::new(
         fmax(lhs.max.0.x(), rhs.max.0.x()),
         fmax(lhs.max.0.y(), rhs.max.0.y()),
         fmax(lhs.max.0.z(), rhs.max.0.z()),

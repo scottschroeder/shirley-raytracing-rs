@@ -1,5 +1,6 @@
-use crate::util::{math::random_in_unit_disk, Point, Ray, Vec3};
 use anyhow::Result;
+
+use crate::util::{math::random_in_unit_disk, Point, Ray, Vec3};
 
 const DEFAULT_FOCAL_LENGTH: f64 = 1.0;
 

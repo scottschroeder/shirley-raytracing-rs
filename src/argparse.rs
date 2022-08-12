@@ -1,8 +1,6 @@
 use clap::Parser;
 
-use super::DEFAULT_WIDTH;
-use super::DEFAULT_OUTPUT;
-use super::DEFAULT_SAMPLES;
+use super::{DEFAULT_OUTPUT, DEFAULT_SAMPLES, DEFAULT_WIDTH};
 
 pub fn get_args() -> CliOpts {
     CliOpts::parse()
@@ -44,7 +42,7 @@ pub struct Render {
 
     /// Render on a single core
     #[clap(long)]
-    pub single_threaded: bool
+    pub single_threaded: bool,
 }
 
 #[derive(Parser, Debug)]

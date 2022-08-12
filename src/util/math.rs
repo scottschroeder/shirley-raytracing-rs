@@ -1,5 +1,6 @@
-use crate::util::Vec3;
 use rand::prelude::{Rng, ThreadRng};
+
+use crate::util::Vec3;
 pub type Real = f64;
 
 pub fn fmin_one(var: f64) -> f64 {

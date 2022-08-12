@@ -1,6 +1,8 @@
-use crate::util::Vec3;
-use image::Rgb;
 use std::ops;
+
+use image::Rgb;
+
+use crate::util::Vec3;
 
 const COLOR_SCALE: f64 = 255.999;
 

@@ -1,5 +1,6 @@
-use crate::util::math::{fmin_one, random_real, Real};
 use std::ops;
+
+use crate::util::math::{fmin_one, random_real, Real};
 
 const NEAR_ZERO: f64 = 1e-8;
 
