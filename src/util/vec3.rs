@@ -4,29 +4,29 @@ use crate::util::math::{fmin_one, random_real, Real};
 
 const NEAR_ZERO: f64 = 1e-8;
 
-pub const EACH_DIMM: [D; 3] = [D::X, D::Y, D::Z];
+pub const EACH_DIMM: [Dimm; 3] = [Dimm::X, Dimm::Y, Dimm::Z];
 
 #[derive(Debug, Clone, Copy)]
-pub enum D {
+pub enum Dimm {
     X,
     Y,
     Z,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
 }
 
-impl ops::Index<D> for Vec3 {
+impl ops::Index<Dimm> for Vec3 {
     type Output = Real;
 
     #[inline]
-    fn index(&self, index: D) -> &Self::Output {
+    fn index(&self, index: Dimm) -> &Self::Output {
         match index {
-            D::X => &self.vec.x,
-            D::Y => &self.vec.y,
-            D::Z => &self.vec.z,
+            Dimm::X => &self.vec.x,
+            Dimm::Y => &self.vec.y,
+            Dimm::Z => &self.vec.z,
         }
     }
 }
@@ -183,7 +183,7 @@ impl ops::SubAssign for Vec3 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Point(pub Vec3);
 
 impl Default for Point {

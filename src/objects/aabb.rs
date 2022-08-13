@@ -1,29 +1,18 @@
-use std::cmp::Ordering;
+use crate::util::{
+    fp::{fmax, fmin},
+    Point, Ray, Vec3, EACH_DIMM,
+};
 
-use crate::util::{Point, Ray, Vec3, EACH_DIMM};
+pub fn bounding<'a>(iter: impl Iterator<Item = &'a Aabb>) -> Option<Aabb> {
+    let mut out = None;
 
-fn fmin(a: f64, b: f64) -> f64 {
-    match a.partial_cmp(&b) {
-        Some(Ordering::Less) => a,
-        Some(_) => b,
-        None => non_nan(a, b),
+    for b in iter {
+        out = Some(match &out {
+            Some(p) => surrounding_box(p, b),
+            None => b.clone(),
+        })
     }
-}
-fn fmax(a: f64, b: f64) -> f64 {
-    match a.partial_cmp(&b) {
-        Some(Ordering::Greater) => a,
-        Some(_) => b,
-        None => non_nan(a, b),
-    }
-}
-
-#[inline]
-fn non_nan(a: f64, b: f64) -> f64 {
-    if a.is_nan() {
-        b
-    } else {
-        a
-    }
+    out
 }
 
 pub fn surrounding_box(lhs: &Aabb, rhs: &Aabb) -> Aabb {
@@ -43,6 +32,7 @@ pub fn surrounding_box(lhs: &Aabb, rhs: &Aabb) -> Aabb {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Aabb {
     pub min: Point,
     pub max: Point,
@@ -80,11 +70,110 @@ impl Aabb {
                 std::mem::swap(&mut t0, &mut t1)
             }
             t_min = if t0 > t_min { t0 } else { t_min };
-            t_max = if t1 > t_max { t1 } else { t_max };
+            t_max = if t1 < t_max { t1 } else { t_max };
             if t_max <= t_min {
                 return false;
             }
         }
         true
+    }
+
+    pub fn area(&self) -> f64 {
+        let x = self.max.0.x() - self.min.0.x();
+        let y = self.max.0.y() - self.min.0.y();
+        let z = self.max.0.z() - self.min.0.z();
+        x * y * z
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn combine_two_identical_boxes() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(0.0, 0.0, 0.0)),
+            max: Point(Vec3::new(1.0, 1.0, 1.0)),
+        };
+        let r = surrounding_box(&b1, &b1);
+        assert_eq!(r, b1);
+    }
+
+    #[test]
+    fn combine_two_overlapping_boxes() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(-0.5, -0.5, -0.5)),
+            max: Point(Vec3::new(1.0, 1.0, 1.0)),
+        };
+        let b2 = Aabb {
+            min: Point(Vec3::new(0.0, 0.0, 0.0)),
+            max: Point(Vec3::new(2.0, 2.0, 2.0)),
+        };
+        let r = surrounding_box(&b1, &b2);
+        let expected = Aabb {
+            min: Point(Vec3::new(-0.5, -0.5, -0.5)),
+            max: Point(Vec3::new(2.0, 2.0, 2.0)),
+        };
+        assert_eq!(r, expected);
+    }
+
+    #[test]
+    fn combine_fully_contained_box() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(0.5, 0.5, 0.5)),
+            max: Point(Vec3::new(1.0, 1.0, 1.0)),
+        };
+        let b2 = Aabb {
+            min: Point(Vec3::new(0.0, 0.0, 0.0)),
+            max: Point(Vec3::new(2.0, 2.0, 2.0)),
+        };
+        let r = surrounding_box(&b1, &b2);
+        assert_eq!(r, b2);
+    }
+
+    #[test]
+    fn check_hit() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(1.0, -1.0, -1.0)),
+            max: Point(Vec3::new(2.0, 1.0, 1.0)),
+        };
+        let r = Ray::new(Point(Vec3::new(0.0, 0.0, 0.0)), Vec3::new(1.0, 0.0, 0.0));
+        // assert!(b1.hit(&r, 0.0, f64::MAX));
+        assert!(b1.hit2(&r, 0.0, f64::MAX));
+    }
+
+    #[test]
+    fn check_miss() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(1.0, -1.0, -1.0)),
+            max: Point(Vec3::new(2.0, 1.0, 1.0)),
+        };
+        let r = Ray::new(Point(Vec3::new(0.0, 2.0, 2.0)), Vec3::new(1.0, 0.0, 0.0));
+        // assert!(!b1.hit(&r, 0.0, f64::MAX));
+        assert!(!b1.hit2(&r, 0.0, f64::MAX));
+    }
+
+    #[test]
+    fn check_graze() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(1.0, -1.0, -1.0)),
+            max: Point(Vec3::new(2.0, 1.0, 1.0)),
+        };
+        let r = Ray::new(Point(Vec3::new(0.0, 1.0, 1.0)), Vec3::new(1.0, 0.0, 0.0));
+        // assert!(b1.hit(&r, 0.0, f64::MAX));
+        assert!(b1.hit2(&r, 0.0, f64::MAX));
+    }
+
+    #[test]
+    fn check_graze_corner() {
+        let b1 = Aabb {
+            min: Point(Vec3::new(1.0001, -1.0, -1.0)),
+            max: Point(Vec3::new(2.0, 1.0001, 1.0001)),
+        };
+        let r = Ray::new(Point(Vec3::new(0.0, 0.0, 0.0)), Vec3::new(1.00, 1.0, 1.0));
+        // TODO should point grazing work?
+        // assert!(b1.hit(&r, 0.0, f64::MAX));
+        // assert!(b1.hit2(&r, 0.0, f64::MAX));
     }
 }

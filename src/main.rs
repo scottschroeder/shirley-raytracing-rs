@@ -1,13 +1,15 @@
 pub mod util {
     mod color;
+    pub(crate) mod fp;
     pub mod math;
     mod vec3;
     pub use color::Color;
-    pub use vec3::{Point, Ray, Vec3, D, EACH_DIMM};
+    pub use vec3::{Dimm, Point, Ray, Vec3, EACH_DIMM};
 }
 pub mod camera;
 pub mod objects {
     mod aabb;
+    mod bbox_tree;
     mod hittable;
     pub mod material;
     pub mod scene;
@@ -27,6 +29,7 @@ use util::{math::random_real, Color, Point, Ray, Vec3};
 
 use crate::objects::{
     material::{Dielectric, Lambertian, Metal},
+    scene::SceneBuilder,
     sphere::Sphere,
 };
 
@@ -139,6 +142,8 @@ fn render_image(args: &argparse::Render) -> Result<()> {
 
     let scanlines = image.scanlines_mut();
 
+    let count = std::sync::atomic::AtomicUsize::new(0);
+    let total = scanlines.len();
     if args.single_threaded {
         let mut rng = rand::thread_rng();
         scanlines
@@ -146,12 +151,16 @@ fn render_image(args: &argparse::Render) -> Result<()> {
             .enumerate()
             .for_each(|(line_idx, buf)| {
                 render_scanline(&frame, &mut rng, line_idx, buf);
+                let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                log::debug!("render line {}/{}", x + 1, total);
             })
     } else {
         scanlines.into_par_iter().enumerate().for_each_init(
             rand::thread_rng,
             |rng, (line_idx, buf)| {
                 render_scanline(&frame, rng, line_idx, buf);
+                let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                log::debug!("render line {}/{}", x + 1, total);
             },
         );
     }
@@ -178,7 +187,7 @@ fn render_scanline(frame: &Frame<'_>, rng: &mut ThreadRng, line_idx: usize, buf:
 
 fn random_scene() -> Scene {
     use rand::prelude::*;
-    let mut scene = Scene::default();
+    let mut scene = SceneBuilder::default();
 
     let mat_ground = Lambertian {
         albedo: Color(Vec3::new(0.5, 0.5, 0.5)),
@@ -246,11 +255,11 @@ fn random_scene() -> Scene {
         }
     }
 
-    scene
+    scene.finalize()
 }
 
 fn create_scene() -> Scene {
-    let mut scene = Scene::default();
+    let mut scene = SceneBuilder::default();
 
     let mat_ground = Lambertian {
         albedo: Color(Vec3::new(0.8, 0.8, 0.0)),
@@ -304,7 +313,7 @@ fn create_scene() -> Scene {
     //     center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
     //     radius: 0.3,
     // });
-    scene
+    scene.finalize()
 }
 
 pub fn setup_logger(level: u8) {
