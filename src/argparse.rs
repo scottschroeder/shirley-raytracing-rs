@@ -19,11 +19,36 @@ pub struct CliOpts {
 pub enum SubCommand {
     Test(Test),
     /// Render an image
+    #[clap(subcommand)]
     Render(Render),
 }
 
 #[derive(Parser, Debug)]
-pub struct Render {
+pub enum Render {
+    Random(RenderRandom),
+    Demo(RenderDemo),
+    Perlin(RenderPerlin),
+}
+
+#[derive(Parser, Debug)]
+pub struct RenderRandom {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
+#[derive(Parser, Debug)]
+pub struct RenderDemo {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
+
+#[derive(Parser, Debug)]
+pub struct RenderPerlin {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
+
+#[derive(Parser, Debug)]
+pub struct RenderSettings {
     /// Output file for image
     #[clap(short, long, default_value=DEFAULT_OUTPUT)]
     pub output: String,
@@ -35,10 +60,6 @@ pub struct Render {
     /// Number of iterations to sample each pixel
     #[clap(short, long, default_value=DEFAULT_SAMPLES)]
     pub samples: usize,
-
-    /// Generate a random scene
-    #[clap(long)]
-    pub random: bool,
 
     /// Render on a single core
     #[clap(long)]

@@ -167,11 +167,11 @@ mod tests {
 
     #[test]
     fn check_graze_corner() {
-        let b1 = Aabb {
+        let _b1 = Aabb {
             min: Point(Vec3::new(1.0001, -1.0, -1.0)),
             max: Point(Vec3::new(2.0, 1.0001, 1.0001)),
         };
-        let r = Ray::new(Point(Vec3::new(0.0, 0.0, 0.0)), Vec3::new(1.00, 1.0, 1.0));
+        let _r = Ray::new(Point(Vec3::new(0.0, 0.0, 0.0)), Vec3::new(1.00, 1.0, 1.0));
         // TODO should point grazing work?
         // assert!(b1.hit(&r, 0.0, f64::MAX));
         // assert!(b1.hit2(&r, 0.0, f64::MAX));

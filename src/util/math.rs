@@ -14,9 +14,15 @@ pub fn random_real(rng: &mut ThreadRng, min: Real, max: Real) -> Real {
     min + (max - min) * rng.gen::<Real>()
 }
 
+#[inline]
+pub fn random_int(rng: &mut ThreadRng, min: i64, max: i64) -> i64 {
+    rng.gen_range(min..max)
+}
+
 pub fn random_in_unit_sphere() -> Vec3 {
+    let mut rng = rand::thread_rng();
     loop {
-        let p = Vec3::random_range(-1.0, 1.0);
+        let p = Vec3::random_range_with_rng(&mut rng, -1.0, 1.0);
         if p.length_squared() <= 1.0 {
             return p;
         }

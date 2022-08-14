@@ -12,8 +12,10 @@ pub mod objects {
     mod bbox_tree;
     mod hittable;
     pub mod material;
+    pub mod perlin;
     pub mod scene;
     pub mod sphere;
+    pub mod texture;
     pub use aabb::Aabb;
     pub use hittable::{Geometry, Hittable};
 }
@@ -27,10 +29,12 @@ use objects::{scene::Scene, Hittable};
 use rand::prelude::ThreadRng;
 use util::{math::random_real, Color, Point, Ray, Vec3};
 
+use self::objects::{perlin::NoiseTexture, texture::ConstantTexture};
 use crate::objects::{
     material::{Dielectric, Lambertian, Metal},
     scene::SceneBuilder,
     sphere::Sphere,
+    texture::CheckerTexture,
 };
 
 const DEFAULT_WIDTH: &str = "640";
@@ -44,7 +48,11 @@ fn main() -> Result<()> {
     log::trace!("Args: {:?}", args);
 
     match &args.subcmd {
-        argparse::SubCommand::Render(sub) => render_image(sub),
+        argparse::SubCommand::Render(sub) => match sub {
+            argparse::Render::Random(args) => render_random(args),
+            argparse::Render::Demo(args) => render_demo(args),
+            argparse::Render::Perlin(args) => render_perlin(args),
+        },
         argparse::SubCommand::Test(sub) => run_test(sub),
     }
     .map_err(|e| {
@@ -91,12 +99,26 @@ fn run_test(_args: &argparse::Test) -> Result<()> {
     Ok(())
 }
 
-fn render_image(args: &argparse::Render) -> Result<()> {
+fn render_random(args: &argparse::RenderRandom) -> Result<()> {
+    let scene = random_scene();
+    render_scene(&args.config, &scene)
+}
+
+fn render_demo(args: &argparse::RenderDemo) -> Result<()> {
+    let scene = create_scene();
+    render_scene(&args.config, &scene)
+}
+
+fn render_perlin(args: &argparse::RenderPerlin) -> Result<()> {
+    let scene = create_perlin_demo();
+    render_scene(&args.config, &scene)
+}
+
+fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
     use rayon::prelude::*;
 
     let width = args.width;
     let output = args.output.as_str();
-    let use_random = args.random;
 
     let samples = if args.samples == 0 {
         log::warn!("samples set to 0, using 1");
@@ -125,11 +147,6 @@ fn render_image(args: &argparse::Render) -> Result<()> {
 
     let mut image = image::Image::from_dimm(camera.dimm);
     image.samples = samples;
-    let scene = if use_random {
-        random_scene()
-    } else {
-        create_scene()
-    };
 
     let frame = Frame {
         camera: &camera,
@@ -189,9 +206,13 @@ fn random_scene() -> Scene {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
 
-    let mat_ground = Lambertian {
-        albedo: Color(Vec3::new(0.5, 0.5, 0.5)),
-    };
+    // let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.5, 0.5, 0.5))));
+    let ground_texture = CheckerTexture::new(
+        10.0,
+        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
+        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+    );
+    let mat_ground = Lambertian::new(ground_texture);
     scene.add(
         Sphere {
             center: util::Point(Vec3::new(0.0, -1000.0, 0.0)),
@@ -212,9 +233,7 @@ fn random_scene() -> Scene {
             center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
             radius: 1.0,
         },
-        Lambertian {
-            albedo: Color(Vec3::new(0.4, 0.2, 0.1)),
-        },
+        Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
     );
     scene.add(
         Sphere {
@@ -242,7 +261,7 @@ fn random_scene() -> Scene {
             if mat_select < 0.7 {
                 // diffuse
                 let albedo = Color(Vec3::random() * Vec3::random());
-                scene.add(sphere, Lambertian { albedo });
+                scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
             } else if mat_select < 0.95 {
                 // metal
                 let albedo = Color(Vec3::random_range(0.5, 1.0));
@@ -261,12 +280,8 @@ fn random_scene() -> Scene {
 fn create_scene() -> Scene {
     let mut scene = SceneBuilder::default();
 
-    let mat_ground = Lambertian {
-        albedo: Color(Vec3::new(0.8, 0.8, 0.0)),
-    };
-    let mat_center = Lambertian {
-        albedo: Color(Vec3::new(0.1, 0.2, 0.5)),
-    };
+    let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.8, 0.8, 0.0))));
+    let mat_center = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.1, 0.2, 0.5))));
     let mat_left = Dielectric { ir: 1.5 };
     let mat_right = Metal::new(Color(Vec3::new(0.8, 0.6, 0.2)), Some(0.0));
 
@@ -313,6 +328,30 @@ fn create_scene() -> Scene {
     //     center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
     //     radius: 0.3,
     // });
+    scene.finalize()
+}
+
+fn create_perlin_demo() -> Scene {
+    let mut scene = SceneBuilder::default();
+
+    let mat = Lambertian::new(NoiseTexture::scale(4.0));
+
+    log::debug!("{:?}", mat);
+
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            radius: 1000.0,
+        },
+        mat.clone(),
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, 2.0, -0.0)),
+            radius: 2.0,
+        },
+        mat,
+    );
     scene.finalize()
 }
 

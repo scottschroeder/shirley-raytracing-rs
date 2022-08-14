@@ -1,3 +1,4 @@
+use super::texture::Texture;
 use crate::{
     objects::hittable::HitRecord,
     util::{
@@ -18,7 +19,15 @@ pub trait Material {
 
 #[derive(Debug, Clone)]
 pub struct Lambertian {
-    pub albedo: Color,
+    pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
+}
+
+impl Lambertian {
+    pub fn new<T: Texture + Send + Sync + 'static>(texture: T) -> Lambertian {
+        Lambertian {
+            albedo: std::sync::Arc::new(texture),
+        }
+    }
 }
 
 impl Material for Lambertian {
@@ -33,7 +42,7 @@ impl Material for Lambertian {
         };
         Some(Scatter {
             direction,
-            attenuation: self.albedo,
+            attenuation: self.albedo.value(0.0, 0.0, record.point),
         })
     }
 }

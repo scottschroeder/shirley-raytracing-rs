@@ -1,5 +1,7 @@
 use std::ops;
 
+use rand::rngs::ThreadRng;
+
 use crate::util::math::{fmin_one, random_real, Real};
 
 const NEAR_ZERO: f64 = 1e-8;
@@ -65,10 +67,14 @@ impl Vec3 {
 
     pub fn random_range(min: Real, max: Real) -> Vec3 {
         let mut rng = rand::thread_rng();
+        Vec3::random_range_with_rng(&mut rng, min, max)
+    }
+
+    pub fn random_range_with_rng(rng: &mut ThreadRng, min: Real, max: Real) -> Vec3 {
         Vec3::new(
-            random_real(&mut rng, min, max),
-            random_real(&mut rng, min, max),
-            random_real(&mut rng, min, max),
+            random_real(rng, min, max),
+            random_real(rng, min, max),
+            random_real(rng, min, max),
         )
     }
 
