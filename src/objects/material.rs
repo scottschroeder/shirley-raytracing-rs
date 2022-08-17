@@ -40,9 +40,10 @@ impl Material for Lambertian {
             orig: record.point,
             direction: scatter,
         };
+
         Some(Scatter {
             direction,
-            attenuation: self.albedo.value(0.0, 0.0, record.point),
+            attenuation: self.albedo.value(record.u, record.v, record.point),
         })
     }
 }

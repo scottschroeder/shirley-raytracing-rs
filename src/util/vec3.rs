@@ -145,6 +145,14 @@ impl Vec3 {
     pub fn unit_mut(&mut self) -> Real {
         self.vec.normalize_mut()
     }
+
+    pub fn component_add(&self, value: f64) -> Vec3 {
+        Vec3::new(self.vec.x + value, self.vec.y + value, self.vec.z + value)
+    }
+
+    pub fn map<F: Fn(f64) -> f64>(&self, f: F) -> Vec3 {
+        Vec3::new(f(self.vec.x), f(self.vec.y), f(self.vec.z))
+    }
 }
 
 impl ops::Add for Vec3 {

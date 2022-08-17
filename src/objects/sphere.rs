@@ -1,9 +1,22 @@
+use std::f64::consts::PI;
+
 use super::{hittable::HitRecord, Aabb, Geometry};
 use crate::util::{Point, Ray, Vec3};
 
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
+}
+
+impl Sphere {
+    fn get_uv(&self, point: &Point) -> (f64, f64) {
+        let theta = (-point.0.y()).acos();
+        let phi = (-point.0.z()).atan2(point.0.x()) + PI;
+
+        let u = phi / (2.0 * PI);
+        let v = theta / PI;
+        (u, v)
+    }
 }
 
 impl Geometry for Sphere {
@@ -27,8 +40,9 @@ impl Geometry for Sphere {
         }
         let point = ray.at(root);
         let normal = (point.0 - self.center.0).scale(1.0 / self.radius);
+        let (u, v) = self.get_uv(&Point(normal));
 
-        Some(HitRecord::new(ray, point, normal, root))
+        Some(HitRecord::new(ray, point, normal, root, u, v))
     }
 
     fn bounding_box(&self) -> Option<super::Aabb> {

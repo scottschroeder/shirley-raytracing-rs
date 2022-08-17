@@ -28,6 +28,7 @@ pub enum Render {
     Random(RenderRandom),
     Demo(RenderDemo),
     Perlin(RenderPerlin),
+    Earth(RenderEarth),
 }
 
 #[derive(Parser, Debug)]
@@ -37,6 +38,12 @@ pub struct RenderRandom {
 }
 #[derive(Parser, Debug)]
 pub struct RenderDemo {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
+
+#[derive(Parser, Debug)]
+pub struct RenderEarth {
     #[clap(flatten)]
     pub config: RenderSettings,
 }

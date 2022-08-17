@@ -21,6 +21,8 @@ pub mod objects {
 }
 pub mod image;
 
+pub mod texture;
+
 mod argparse;
 
 use anyhow::Result;
@@ -30,16 +32,20 @@ use rand::prelude::ThreadRng;
 use util::{math::random_real, Color, Point, Ray, Vec3};
 
 use self::objects::{perlin::NoiseTexture, texture::ConstantTexture};
-use crate::objects::{
-    material::{Dielectric, Lambertian, Metal},
-    scene::SceneBuilder,
-    sphere::Sphere,
-    texture::CheckerTexture,
+use crate::{
+    objects::{
+        material::{Dielectric, Lambertian, Metal},
+        scene::SceneBuilder,
+        sphere::Sphere,
+        texture::CheckerTexture,
+    },
+    texture::ImageTexture,
 };
 
 const DEFAULT_WIDTH: &str = "640";
 const DEFAULT_SAMPLES: &str = "100";
 const DEFAULT_OUTPUT: &str = "out.png";
+const EARTH_TEXTURE: &[u8] = include_bytes!("../assets/earthmap.jpg");
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -52,6 +58,7 @@ fn main() -> Result<()> {
             argparse::Render::Random(args) => render_random(args),
             argparse::Render::Demo(args) => render_demo(args),
             argparse::Render::Perlin(args) => render_perlin(args),
+            argparse::Render::Earth(args) => render_earth(args),
         },
         argparse::SubCommand::Test(sub) => run_test(sub),
     }
@@ -111,6 +118,11 @@ fn render_demo(args: &argparse::RenderDemo) -> Result<()> {
 
 fn render_perlin(args: &argparse::RenderPerlin) -> Result<()> {
     let scene = create_perlin_demo();
+    render_scene(&args.config, &scene)
+}
+
+fn render_earth(args: &argparse::RenderEarth) -> Result<()> {
+    let scene = create_earth_demo()?;
     render_scene(&args.config, &scene)
 }
 
@@ -258,10 +270,23 @@ fn random_scene() -> Scene {
                 continue;
             }
             let sphere = Sphere { center, radius };
-            if mat_select < 0.7 {
+            if mat_select < 0.5 {
                 // diffuse
                 let albedo = Color(Vec3::random() * Vec3::random());
                 scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
+            } else if mat_select < 0.6 {
+                // checker
+                let checker_color = Color(Vec3::random() * Vec3::random());
+                let checker_texture = CheckerTexture::new(
+                    8.0 / radius,
+                    ConstantTexture::from(checker_color),
+                    ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+                );
+                scene.add(sphere, Lambertian::new(checker_texture));
+            } else if mat_select < 0.7 {
+                // marble
+                let mat = Lambertian::new(NoiseTexture::scale(16.0));
+                scene.add(sphere, mat);
             } else if mat_select < 0.95 {
                 // metal
                 let albedo = Color(Vec3::random_range(0.5, 1.0));
@@ -336,6 +361,13 @@ fn create_perlin_demo() -> Scene {
 
     let mat = Lambertian::new(NoiseTexture::scale(4.0));
 
+    let ground_texture = CheckerTexture::new(
+        10.0,
+        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
+        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+    );
+    let mat_ground = Lambertian::new(ground_texture);
+
     log::debug!("{:?}", mat);
 
     scene.add(
@@ -343,7 +375,7 @@ fn create_perlin_demo() -> Scene {
             center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
             radius: 1000.0,
         },
-        mat.clone(),
+        mat_ground,
     );
     scene.add(
         Sphere {
@@ -353,6 +385,36 @@ fn create_perlin_demo() -> Scene {
         mat,
     );
     scene.finalize()
+}
+
+fn create_earth_demo() -> anyhow::Result<Scene> {
+    let mut scene = SceneBuilder::default();
+
+    let earth_texture = ImageTexture::load_from_memory(EARTH_TEXTURE)?;
+    let mat = Lambertian::new(earth_texture);
+
+    let ground_texture = CheckerTexture::new(
+        10.0,
+        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
+        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+    );
+    let mat_ground = Lambertian::new(ground_texture);
+
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            radius: 1000.0,
+        },
+        mat_ground,
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(4.0, 1.0, 1.0)),
+            radius: 1.0,
+        },
+        mat,
+    );
+    Ok(scene.finalize())
 }
 
 pub fn setup_logger(level: u8) {

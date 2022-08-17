@@ -79,7 +79,6 @@ impl Perlin {
     }
 
     fn noise(&self, p: Point) -> f64 {
-        // p_to_idx(p);
         let xf = p.0.x().floor();
         let yf = p.0.y().floor();
         let zf = p.0.z().floor();
@@ -101,6 +100,20 @@ impl Perlin {
             self.ranfloat[idx]
         });
         kernel.interp(u, v, w)
+    }
+
+    fn turbulence(&self, p: Point, depth: usize) -> f64 {
+        let mut accum = 0.0;
+        let mut tp = p;
+        let mut weight = 1.0;
+
+        for _ in 0..depth {
+            accum += weight * self.noise(tp);
+            weight *= 0.5;
+            tp = Point(tp.0.scale(2.0));
+        }
+
+        accum.abs()
     }
 }
 
@@ -142,8 +155,24 @@ impl Default for NoiseTexture {
 
 impl Texture for NoiseTexture {
     fn value(&self, _u: f64, _v: f64, p: Point) -> crate::util::Color {
-        let scaled = Point(p.0.scale(self.scale));
-        let noise = 0.5 * (1.0 + self.noise.noise(scaled));
+        // let scaled = Point(p.0.scale(self.scale));
+        // noise
+        // let noise = 0.5 * (1.0 + self.noise.noise(scaled));
+        // turbulence netting
+        // let noise = self.noise.turbulence(scaled, 7);
+
+        // marble
+        let turb = 10.0 * self.noise.turbulence(p, 7);
+
+        let dimm_scale = Vec3::new(1.0 / 5.0, 1.0 / 10.0, 1.0);
+        let dimm_weight = Vec3::new(0.0, 0.0, 1.0).unit();
+        let vec_dimm = (dimm_scale.scale(self.scale) * p.0)
+            .component_add(turb)
+            .map(|c| c.sin());
+
+        let total_noise = vec_dimm.dot(&dimm_weight);
+
+        let noise = 0.5 * (1.0 + total_noise);
         Color(Vec3::new(1.0, 1.0, 1.0).scale(noise))
     }
 }
