@@ -102,9 +102,9 @@ impl Perlin {
         kernel.interp(u, v, w)
     }
 
-    fn turbulence(&self, p: Point, depth: usize) -> f64 {
+    fn turbulence(&self, p: &Point, depth: usize) -> f64 {
         let mut accum = 0.0;
-        let mut tp = p;
+        let mut tp = *p;
         let mut weight = 1.0;
 
         for _ in 0..depth {
@@ -154,7 +154,7 @@ impl Default for NoiseTexture {
 }
 
 impl Texture for NoiseTexture {
-    fn value(&self, _u: f64, _v: f64, p: Point) -> crate::util::Color {
+    fn value(&self, _u: f64, _v: f64, p: &Point) -> crate::util::Color {
         // let scaled = Point(p.0.scale(self.scale));
         // noise
         // let noise = 0.5 * (1.0 + self.noise.noise(scaled));

@@ -11,9 +11,11 @@ pub mod objects {
     mod aabb;
     mod bbox_tree;
     mod hittable;
+    pub mod lighting;
     pub mod material;
     pub mod perlin;
     pub mod scene;
+    pub mod skybox;
     pub mod sphere;
     pub mod texture;
     pub use aabb::Aabb;
@@ -68,26 +70,29 @@ fn main() -> Result<()> {
     })
 }
 
-fn skybox(r: &Ray) -> Color {
-    let unit = r.direction.unit();
-    let t = 0.5f64 * (unit.y() + 1f64);
-    Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
-}
-
 fn ray_color(incoming: &Ray, scene: &Scene, mut max_depth: usize) -> Color {
     let mut ray = *incoming;
     let mut attenuation = Color::ones();
+    let mut emitted = Color::default();
 
     while max_depth > 0 {
         if let Some((obj, r)) = scene.hit(&ray, 0.001, std::f64::INFINITY) {
+            if let Some(e) = obj.material.emitted(r.u, r.v, &r.point) {
+                emitted += Color(attenuation.0 * e.0);
+            }
             if let Some(scatter) = obj.material.scatter(&ray, &r) {
                 attenuation = Color(attenuation.0 * scatter.attenuation.0);
                 ray = scatter.direction;
             } else {
-                attenuation = Color::default();
+                // this might not be a bug, but hasn't come up yet, so when this panic does happen
+                // I want to consider what I'm doing to have an object which does not reflect.
+                //
+                // I suspect this will be an emitted light source, but then attenuation should not
+                // be 0.
+                panic!("scatter without attenuation?");
             }
         } else {
-            return Color(attenuation.0 * skybox(&ray).0);
+            return Color(emitted.0 + attenuation.0 * scene.skybox.background(&ray).0);
         }
         max_depth -= 1
     }

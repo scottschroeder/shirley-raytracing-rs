@@ -1,7 +1,7 @@
 use crate::util::{Color, Point};
 
 pub trait Texture: std::fmt::Debug {
-    fn value(&self, u: f64, v: f64, p: Point) -> Color;
+    fn value(&self, u: f64, v: f64, p: &Point) -> Color;
 }
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ impl From<Color> for ConstantTexture {
 }
 
 impl Texture for ConstantTexture {
-    fn value(&self, _u: f64, _v: f64, _p: Point) -> Color {
+    fn value(&self, _u: f64, _v: f64, _p: &Point) -> Color {
         self.color
     }
 }
@@ -43,7 +43,7 @@ impl CheckerTexture {
 }
 
 impl Texture for CheckerTexture {
-    fn value(&self, u: f64, v: f64, p: Point) -> Color {
+    fn value(&self, u: f64, v: f64, p: &Point) -> Color {
         let sines =
             (self.size * p.0.x()).sin() * (self.size * p.0.y()).sin() * (self.size * p.0.z()).sin();
         if sines < 0.0 {

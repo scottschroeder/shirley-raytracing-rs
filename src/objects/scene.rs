@@ -1,4 +1,4 @@
-use super::{bbox_tree::BboxTree, hittable::HitRecord};
+use super::{bbox_tree::BboxTree, hittable::HitRecord, skybox::SkyBox};
 use crate::objects::{material::Material, Geometry, Hittable};
 
 pub struct SceneObject {
@@ -16,10 +16,20 @@ impl Geometry for SceneObject {
     }
 }
 
-#[derive(Default)]
 pub struct SceneBuilder {
+    skybox: SkyBox,
     objects: Vec<SceneObject>,
     bounded_objects: Vec<SceneObject>,
+}
+
+impl Default for SceneBuilder {
+    fn default() -> Self {
+        Self {
+            skybox: SkyBox::Above,
+            objects: Default::default(),
+            bounded_objects: Default::default(),
+        }
+    }
 }
 
 impl SceneBuilder {
@@ -37,6 +47,7 @@ impl SceneBuilder {
     pub fn finalize_without_tree(mut self) -> Scene {
         self.objects.extend(self.bounded_objects);
         Scene {
+            skybox: self.skybox,
             objects: self.objects,
             tree: BboxTree::default(),
         }
@@ -44,6 +55,7 @@ impl SceneBuilder {
     pub fn finalize(self) -> Scene {
         let tree = BboxTree::new(self.bounded_objects);
         Scene {
+            skybox: self.skybox,
             objects: self.objects,
             tree,
         }
@@ -51,6 +63,7 @@ impl SceneBuilder {
 }
 
 pub struct Scene {
+    pub skybox: SkyBox,
     objects: Vec<SceneObject>,
     tree: BboxTree<SceneObject>,
 }
