@@ -14,6 +14,7 @@ pub mod objects {
     pub mod lighting;
     pub mod material;
     pub mod perlin;
+    pub mod rect;
     pub mod scene;
     pub mod skybox;
     pub mod sphere;
@@ -33,7 +34,14 @@ use objects::scene::Scene;
 use rand::prelude::ThreadRng;
 use util::{math::random_real, Color, Point, Ray, Vec3};
 
-use self::objects::{perlin::NoiseTexture, texture::ConstantTexture};
+use self::{
+    argparse::RenderSettings,
+    objects::{
+        perlin::NoiseTexture,
+        rect::{xy_rect, xz_rect, yz_rect},
+        texture::ConstantTexture,
+    },
+};
 use crate::{
     objects::{
         lighting::DiffuseLight,
@@ -62,6 +70,8 @@ fn main() -> Result<()> {
             argparse::Render::Demo(args) => render_demo(args),
             argparse::Render::Perlin(args) => render_perlin(args),
             argparse::Render::Earth(args) => render_earth(args),
+            argparse::Render::BoxLight(args) => render_boxlight(args),
+            argparse::Render::Cornell(args) => render_cornell_box(args),
         },
         argparse::SubCommand::Test(sub) => run_test(sub),
     }
@@ -121,29 +131,86 @@ fn run_test(_args: &argparse::Test) -> Result<()> {
 }
 
 fn render_random(args: &argparse::RenderRandom) -> Result<()> {
-    let scene = random_scene();
-    render_scene(&args.config, &scene)
+    let scene = random_scene(args.night);
+    let (camera, pos) = default_camera(&args.config)?;
+    render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_demo(args: &argparse::RenderDemo) -> Result<()> {
     let scene = create_scene();
-    render_scene(&args.config, &scene)
+    let (camera, pos) = default_camera(&args.config)?;
+    render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_perlin(args: &argparse::RenderPerlin) -> Result<()> {
     let scene = create_perlin_demo();
-    render_scene(&args.config, &scene)
+    let (camera, pos) = default_camera(&args.config)?;
+    render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_earth(args: &argparse::RenderEarth) -> Result<()> {
     let scene = create_earth_demo()?;
-    render_scene(&args.config, &scene)
+    let (camera, pos) = default_camera(&args.config)?;
+    render_scene(&args.config, &scene, &camera, &pos)
 }
 
-fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
+fn render_boxlight(args: &argparse::RenderBoxLight) -> Result<()> {
+    let scene = create_box_light();
+    let (camera, pos) = default_camera(&args.config)?;
+    render_scene(&args.config, &scene, &camera, &pos)
+}
+
+fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
+    let scene = create_cornell_box();
+
+    let width = args.config.width;
+    let mut camera = camera::CameraBuilder::default();
+    camera
+        .vfov(40.0)
+        .focal_length(1.0)
+        .aperture(0.00001)
+        .width(width)
+        .aspect_ratio((1, 1));
+
+    let camera = camera.build()?;
+    let mut pos = CameraPosition::look_at(
+        Point(Vec3::new(278.0, 278.0, -800.0)),
+        Point(Vec3::new(278.0, 278.0, 0.0)),
+        Vec3::new(0.0, 1.0, 0.0),
+    );
+    pos.focus_length = 10.0;
+
+    render_scene(&args.config, &scene, &camera, &pos)
+}
+
+fn default_camera(args: &RenderSettings) -> Result<(Camera, CameraPosition)> {
+    let width = args.width;
+    let mut camera = camera::CameraBuilder::default();
+    camera
+        .vfov(20.0)
+        .focal_length(1.0)
+        .aperture(0.01)
+        .width(width)
+        .aspect_ratio((3, 2));
+
+    let camera = camera.build()?;
+    let mut pos = CameraPosition::look_at(
+        Point(Vec3::new(13.0, 2.0, 3.0)),
+        Point(Vec3::new(0.0, 0.0, 0.0)),
+        Vec3::new(0.0, 1.0, 0.0),
+    );
+    pos.focus_length = 10.0;
+    Ok((camera, pos))
+}
+
+fn render_scene(
+    args: &argparse::RenderSettings,
+    scene: &Scene,
+    camera: &Camera,
+    pos: &CameraPosition,
+) -> Result<()> {
     use rayon::prelude::*;
 
-    let width = args.width;
     let output = args.output.as_str();
 
     let samples = if args.samples == 0 {
@@ -153,21 +220,6 @@ fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
         args.samples
     };
 
-    let mut camera = camera::CameraBuilder::default();
-    camera
-        .vfov(20.0)
-        .focal_length(1.0)
-        .aperture(0.1)
-        .width(width)
-        .aspect_ratio((3, 2));
-    let camera = camera.build()?;
-    let mut pos = CameraPosition::look_at(
-        Point(Vec3::new(13.0, 2.0, 3.0)),
-        Point(Vec3::new(0.0, 0.0, 0.0)),
-        Vec3::new(0.0, 1.0, 0.0),
-    );
-    pos.focus_length = 10.0;
-
     log::trace!("Camera: {:?}", camera);
     log::trace!("Pos: {:?}", pos);
 
@@ -175,9 +227,9 @@ fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
     image.samples = samples;
 
     let frame = Frame {
-        camera: &camera,
-        pos: &pos,
-        scene: &scene,
+        camera,
+        pos,
+        scene,
         samples,
     };
 
@@ -236,10 +288,12 @@ fn render_scanline(
     }
 }
 
-fn random_scene() -> Scene {
+fn random_scene(night: bool) -> Scene {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
-    // scene.set_skybox(objects::skybox::SkyBox::None);
+    if night {
+        scene.set_skybox(objects::skybox::SkyBox::None);
+    }
 
     // let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.5, 0.5, 0.5))));
     let ground_texture = CheckerTexture::new(
@@ -290,9 +344,11 @@ fn random_scene() -> Scene {
         Marble,
     }
 
+    let light_weight = if night { 4 } else { 0 };
+
     let types = [
         (BallTypes::Color, 4),
-        (BallTypes::SphereLight, 0),
+        (BallTypes::SphereLight, light_weight),
         (BallTypes::Glass, 1),
         (BallTypes::Metal, 4),
         (BallTypes::Checker, 1),
@@ -320,7 +376,7 @@ fn random_scene() -> Scene {
                     scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
                 }
                 BallTypes::SphereLight => {
-                    let albedo = Color(Vec3::random() * Vec3::random());
+                    let albedo = Color((Vec3::random() * Vec3::random()).scale(4.0));
                     scene.add(sphere, DiffuseLight::new(ConstantTexture::from(albedo)));
                 }
                 BallTypes::Glass => {
@@ -409,6 +465,73 @@ fn create_scene() -> Scene {
     scene.finalize()
 }
 
+fn create_cornell_box() -> Scene {
+    let mut scene = SceneBuilder::default();
+    scene.set_skybox(objects::skybox::SkyBox::None);
+
+    let red = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.65, 0.05, 0.05))));
+    let white = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.73, 0.73, 0.73))));
+    let green = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.12, 0.45, 0.15))));
+    let light = DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(15.0, 15.0, 15.0))));
+
+    let box_size = 555.0;
+    scene.add(yz_rect(0.0, box_size, 0.0, box_size, box_size), green);
+    scene.add(yz_rect(0.0, box_size, 0.0, box_size, 0.0), red);
+    scene.add(xz_rect(213.0, 343.0, 227.0, 332.0, 554.0), light);
+    scene.add(xz_rect(0.0, box_size, 0.0, box_size, 0.0), white.clone());
+    scene.add(
+        xz_rect(0.0, box_size, 0.0, box_size, box_size),
+        white.clone(),
+    );
+    scene.add(xy_rect(0.0, box_size, 0.0, box_size, box_size), white);
+    scene.finalize()
+}
+fn create_box_light() -> Scene {
+    let mut scene = SceneBuilder::default();
+    scene.set_skybox(objects::skybox::SkyBox::None);
+
+    let mat = Lambertian::new(NoiseTexture::scale(4.0));
+
+    let ground_texture = CheckerTexture::new(
+        10.0,
+        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
+        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+    );
+    let mat_ground = Lambertian::new(ground_texture);
+
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            radius: 1000.0,
+        },
+        mat_ground,
+    );
+    scene.add(
+        Sphere {
+            center: util::Point(Vec3::new(0.0, 2.0, -0.0)),
+            radius: 2.0,
+        },
+        mat,
+    );
+    // scene.add(
+    //     XYRect {
+    //         x0: 3.0,
+    //         x1: 5.0,
+    //         y0: 1.0,
+    //         y1: 3.0,
+    //         k: -2.0,
+    //     },
+    //     DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(4.0, 4.0, 4.0)))),
+    // );
+
+    scene.add(
+        // xy_rect(3.0, 5.0, 1.0, 3.0, -2.0),
+        // yz_rect(3.0, 5.0, 1.0, 3.0, -2.0),
+        xz_rect(3.0, 5.0, 1.0, 3.0, 3.5),
+        DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(4.0, 4.0, 4.0)))),
+    );
+    scene.finalize()
+}
 fn create_perlin_demo() -> Scene {
     let mut scene = SceneBuilder::default();
 

@@ -15,6 +15,16 @@ pub enum Dimm {
     Z,
 }
 
+impl Dimm {
+    pub const fn dimm_num(self) -> usize {
+        match self {
+            Dimm::X => 0,
+            Dimm::Y => 1,
+            Dimm::Z => 2,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
@@ -29,6 +39,31 @@ impl ops::Index<Dimm> for Vec3 {
             Dimm::X => &self.vec.x,
             Dimm::Y => &self.vec.y,
             Dimm::Z => &self.vec.z,
+        }
+    }
+}
+
+impl ops::Index<usize> for Vec3 {
+    type Output = Real;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.vec.x,
+            1 => &self.vec.y,
+            2 => &self.vec.z,
+            _ => panic!("vec3 does not support dimmensions larger than 2"),
+        }
+    }
+}
+
+impl ops::IndexMut<usize> for Vec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.vec.x,
+            1 => &mut self.vec.y,
+            2 => &mut self.vec.z,
+            _ => panic!("vec3 does not support dimmensions larger than 2"),
         }
     }
 }

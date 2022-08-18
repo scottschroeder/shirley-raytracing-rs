@@ -29,12 +29,27 @@ pub enum Render {
     Demo(RenderDemo),
     Perlin(RenderPerlin),
     Earth(RenderEarth),
+    BoxLight(RenderBoxLight),
+    Cornell(RenderCornellBox),
 }
 
+#[derive(Parser, Debug)]
+pub struct RenderCornellBox {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
+#[derive(Parser, Debug)]
+pub struct RenderBoxLight {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+}
 #[derive(Parser, Debug)]
 pub struct RenderRandom {
     #[clap(flatten)]
     pub config: RenderSettings,
+    /// Render at night time!
+    #[clap(long)]
+    pub night: bool,
 }
 #[derive(Parser, Debug)]
 pub struct RenderDemo {
