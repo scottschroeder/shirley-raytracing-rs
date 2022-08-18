@@ -1,6 +1,6 @@
 use super::{material::Material, texture::Texture};
 
-struct DiffuseLight {
+pub struct DiffuseLight {
     pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
 }
 

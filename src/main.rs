@@ -29,13 +29,14 @@ mod argparse;
 
 use anyhow::Result;
 use camera::{Camera, CameraPosition};
-use objects::{scene::Scene, Hittable};
+use objects::scene::Scene;
 use rand::prelude::ThreadRng;
 use util::{math::random_real, Color, Point, Ray, Vec3};
 
 use self::objects::{perlin::NoiseTexture, texture::ConstantTexture};
 use crate::{
     objects::{
+        lighting::DiffuseLight,
         material::{Dielectric, Lambertian, Metal},
         scene::SceneBuilder,
         sphere::Sphere,
@@ -70,13 +71,20 @@ fn main() -> Result<()> {
     })
 }
 
-fn ray_color(incoming: &Ray, scene: &Scene, mut max_depth: usize) -> Color {
+fn ray_color(
+    hit_stack: &mut Vec<usize>,
+    incoming: &Ray,
+    scene: &Scene,
+    mut max_depth: usize,
+) -> Color {
     let mut ray = *incoming;
     let mut attenuation = Color::ones();
     let mut emitted = Color::default();
 
+    let mut workspace = scene.workspace_scene(hit_stack);
+
     while max_depth > 0 {
-        if let Some((obj, r)) = scene.hit(&ray, 0.001, std::f64::INFINITY) {
+        if let Some((obj, r)) = workspace.hit_workspace(&ray, 0.001, std::f64::INFINITY) {
             if let Some(e) = obj.material.emitted(r.u, r.v, &r.point) {
                 emitted += Color(attenuation.0 * e.0);
             }
@@ -84,12 +92,13 @@ fn ray_color(incoming: &Ray, scene: &Scene, mut max_depth: usize) -> Color {
                 attenuation = Color(attenuation.0 * scatter.attenuation.0);
                 ray = scatter.direction;
             } else {
-                // this might not be a bug, but hasn't come up yet, so when this panic does happen
-                // I want to consider what I'm doing to have an object which does not reflect.
-                //
-                // I suspect this will be an emitted light source, but then attenuation should not
-                // be 0.
-                panic!("scatter without attenuation?");
+                return emitted;
+                // // this might not be a bug, but hasn't come up yet, so when this panic does happen
+                // // I want to consider what I'm doing to have an object which does not reflect.
+                // //
+                // // I suspect this will be an emitted light source, but then attenuation should not
+                // // be 0.
+                // panic!("scatter without attenuation?");
             }
         } else {
             return Color(emitted.0 + attenuation.0 * scene.skybox.background(&ray).0);
@@ -180,19 +189,21 @@ fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
     let total = scanlines.len();
     if args.single_threaded {
         let mut rng = rand::thread_rng();
+        let mut hit_stack = Vec::new();
         scanlines
             .iter_mut()
             .enumerate()
             .for_each(|(line_idx, buf)| {
-                render_scanline(&frame, &mut rng, line_idx, buf);
+                render_scanline(&frame, &mut rng, &mut hit_stack, line_idx, buf);
                 let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 log::debug!("render line {}/{}", x + 1, total);
             })
     } else {
         scanlines.into_par_iter().enumerate().for_each_init(
-            rand::thread_rng,
-            |rng, (line_idx, buf)| {
-                render_scanline(&frame, rng, line_idx, buf);
+            || (rand::thread_rng(), Vec::<usize>::new()),
+            // rand::thread_rng,
+            |(rng, hit_stack), (line_idx, buf)| {
+                render_scanline(&frame, rng, hit_stack, line_idx, buf);
                 let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 log::debug!("render line {}/{}", x + 1, total);
             },
@@ -203,7 +214,13 @@ fn render_scene(args: &argparse::RenderSettings, scene: &Scene) -> Result<()> {
     Ok(())
 }
 
-fn render_scanline(frame: &Frame<'_>, rng: &mut ThreadRng, line_idx: usize, buf: &mut [Color]) {
+fn render_scanline(
+    frame: &Frame<'_>,
+    rng: &mut ThreadRng,
+    hit_stack: &mut Vec<usize>,
+    line_idx: usize,
+    buf: &mut [Color],
+) {
     use rand::prelude::*;
     for (idx, buf_c) in buf.iter_mut().enumerate() {
         let mut c = Color::default();
@@ -213,7 +230,7 @@ fn render_scanline(frame: &Frame<'_>, rng: &mut ThreadRng, line_idx: usize, buf:
                 idx as f64 + rng.gen::<f64>(),
                 line_idx as f64 + rng.gen::<f64>(),
             );
-            c += ray_color(&r, frame.scene, 50);
+            c += ray_color(hit_stack, &r, frame.scene, 50);
         }
         *buf_c = c
     }
@@ -222,6 +239,7 @@ fn render_scanline(frame: &Frame<'_>, rng: &mut ThreadRng, line_idx: usize, buf:
 fn random_scene() -> Scene {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
+    // scene.set_skybox(objects::skybox::SkyBox::None);
 
     // let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.5, 0.5, 0.5))));
     let ground_texture = CheckerTexture::new(
@@ -250,7 +268,7 @@ fn random_scene() -> Scene {
             center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
             radius: 1.0,
         },
-        Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
+        DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
     );
     scene.add(
         Sphere {
@@ -261,9 +279,30 @@ fn random_scene() -> Scene {
     );
 
     let mut rng = thread_rng();
+
+    #[derive(Clone, Copy)]
+    enum BallTypes {
+        Color,
+        SphereLight,
+        Glass,
+        Metal,
+        Checker,
+        Marble,
+    }
+
+    let types = [
+        (BallTypes::Color, 4),
+        (BallTypes::SphereLight, 0),
+        (BallTypes::Glass, 1),
+        (BallTypes::Metal, 4),
+        (BallTypes::Checker, 1),
+        (BallTypes::Marble, 1),
+    ];
+
     for a in -11..11 {
         for b in -11..11 {
-            let mat_select = rng.gen::<f64>();
+            let item = types.choose_weighted(&mut rng, |x| x.1).unwrap().0;
+
             let radius = random_real(&mut rng, 0.05, 0.25);
             let center = Point(Vec3::new(
                 a as f64 + 0.9 * rng.gen::<f64>(),
@@ -275,31 +314,40 @@ fn random_scene() -> Scene {
                 continue;
             }
             let sphere = Sphere { center, radius };
-            if mat_select < 0.5 {
-                // diffuse
-                let albedo = Color(Vec3::random() * Vec3::random());
-                scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
-            } else if mat_select < 0.6 {
-                // checker
-                let checker_color = Color(Vec3::random() * Vec3::random());
-                let checker_texture = CheckerTexture::new(
-                    8.0 / radius,
-                    ConstantTexture::from(checker_color),
-                    ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
-                );
-                scene.add(sphere, Lambertian::new(checker_texture));
-            } else if mat_select < 0.7 {
-                // marble
-                let mat = Lambertian::new(NoiseTexture::scale(16.0));
-                scene.add(sphere, mat);
-            } else if mat_select < 0.95 {
-                // metal
-                let albedo = Color(Vec3::random_range(0.5, 1.0));
-                let fuzz = random_real(&mut rng, 0.0, 0.5);
-                scene.add(sphere, Metal::new(albedo, Some(fuzz)));
-            } else {
-                // glass
-                scene.add(sphere, Dielectric { ir: 1.5 });
+            match item {
+                BallTypes::Color => {
+                    let albedo = Color(Vec3::random() * Vec3::random());
+                    scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
+                }
+                BallTypes::SphereLight => {
+                    let albedo = Color(Vec3::random() * Vec3::random());
+                    scene.add(sphere, DiffuseLight::new(ConstantTexture::from(albedo)));
+                }
+                BallTypes::Glass => {
+                    // glass
+                    scene.add(sphere, Dielectric { ir: 1.5 });
+                }
+                BallTypes::Metal => {
+                    // metal
+                    let albedo = Color(Vec3::random_range(0.5, 1.0));
+                    let fuzz = random_real(&mut rng, 0.0, 0.5);
+                    scene.add(sphere, Metal::new(albedo, Some(fuzz)));
+                }
+                BallTypes::Checker => {
+                    // checker
+                    let checker_color = Color(Vec3::random() * Vec3::random());
+                    let checker_texture = CheckerTexture::new(
+                        8.0 / radius,
+                        ConstantTexture::from(checker_color),
+                        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+                    );
+                    scene.add(sphere, Lambertian::new(checker_texture));
+                }
+                BallTypes::Marble => {
+                    // marble
+                    let mat = Lambertian::new(NoiseTexture::scale(16.0));
+                    scene.add(sphere, mat);
+                }
             }
         }
     }

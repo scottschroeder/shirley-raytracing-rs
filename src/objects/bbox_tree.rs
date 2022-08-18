@@ -209,6 +209,43 @@ impl<T: Geometry> BboxTree<T> {
         }
     }
 
+    pub fn hit_workspace(
+        &self,
+        stack: &mut Vec<usize>,
+        ray: &Ray,
+        t_min: f64,
+        t_max: f64,
+    ) -> Option<(&T, HitRecord)> {
+        let root_idx = self.root?;
+
+        stack.truncate(0);
+        stack.push(root_idx);
+
+        // let mut stack = vec![root_idx];
+        let mut closest: Option<(&T, HitRecord)> = None;
+
+        while let Some(node_idx) = stack.pop() {
+            let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
+
+            let node = &self.tree[node_idx];
+            if !node.bbox.hit2(ray, t_min, t_closest) {
+                continue;
+            }
+            match node.ptr {
+                NodePointer::Branch { lhs, rhs } => {
+                    stack.push(lhs);
+                    stack.push(rhs);
+                }
+                NodePointer::Leaf(idx) => {
+                    let obj = &self.leaves[idx];
+                    if let Some(hit) = obj.hit(ray, t_min, t_closest) {
+                        closest = Some((obj, hit))
+                    }
+                }
+            }
+        }
+        closest
+    }
     // pub fn hits<'a>(&'a self, ray: &'a Ray, t_min: f64, t_max: f64) -> Hiterator<'a, T> {
     //     Hiterator {
     //         tree: self,

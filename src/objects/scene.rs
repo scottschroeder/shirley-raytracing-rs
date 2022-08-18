@@ -33,6 +33,11 @@ impl Default for SceneBuilder {
 }
 
 impl SceneBuilder {
+    pub fn set_skybox(&mut self, skybox: SkyBox) -> &mut Self {
+        self.skybox = skybox;
+        self
+    }
+
     pub fn add<G: Geometry + 'static + Sync, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
         let obj = SceneObject {
             geometry: Box::new(g),
@@ -68,6 +73,37 @@ pub struct Scene {
     tree: BboxTree<SceneObject>,
 }
 
+pub struct WorkspaceScene<'a, 'b> {
+    objects: &'a [SceneObject],
+    tree: &'a BboxTree<SceneObject>,
+    stack: &'b mut Vec<usize>,
+}
+
+impl<'a, 'b> WorkspaceScene<'a, 'b> {
+    pub fn hit_workspace(
+        &mut self,
+        ray: &crate::util::Ray,
+        t_min: f64,
+        t_max: f64,
+    ) -> Option<(&SceneObject, HitRecord)> {
+        let mut closest: Option<(&SceneObject, HitRecord)> = None;
+
+        for obj in self.objects {
+            let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
+            if let Some(hit) = obj.geometry.hit(ray, t_min, t_closest) {
+                closest = Some((obj, hit))
+            }
+        }
+        let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
+
+        let new_closest = self
+            .tree
+            .hit_workspace(&mut self.stack, ray, t_min, t_closest);
+
+        new_closest.or(closest)
+    }
+}
+
 impl Scene {
     pub fn add<G: Geometry + 'static + Sync, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
         let obj = SceneObject {
@@ -75,6 +111,17 @@ impl Scene {
             material: Box::new(m),
         };
         self.objects.push(obj);
+    }
+
+    pub fn workspace_scene<'a, 'b>(
+        &'a self,
+        hit_stack: &'b mut Vec<usize>,
+    ) -> WorkspaceScene<'a, 'b> {
+        WorkspaceScene {
+            objects: &self.objects,
+            tree: &self.tree,
+            stack: hit_stack,
+        }
     }
 }
 
