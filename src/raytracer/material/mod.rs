@@ -1,12 +1,10 @@
-
 pub mod dielectric;
 pub mod lambertian;
 pub mod lighting;
+pub mod material_type;
 pub mod metal;
 pub mod perlin;
 pub mod texture;
-pub mod material_type;
-
 
 use super::geometry::hittable::HitRecord;
 use crate::raytracer::core::{Color, Ray};
@@ -23,4 +21,3 @@ pub trait Material {
         None
     }
 }
-

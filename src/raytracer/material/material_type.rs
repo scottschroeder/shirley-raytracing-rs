@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use super::{metal::Metal, dielectric::Dielectric};
 
+use super::{dielectric::Dielectric, metal::Metal};
 
 #[derive(Serialize, Deserialize)]
 pub enum MaterialType {

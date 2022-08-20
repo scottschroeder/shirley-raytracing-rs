@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::raytracer::core::{Color, Ray, Vec3};
 
 fn skybox(r: &Ray) -> Color {
@@ -6,7 +8,7 @@ fn skybox(r: &Ray) -> Color {
     Color(Vec3::new(1.0, 1.0, 1.0).scale(1f64 - t) + Vec3::new(0.5, 0.7, 1.0).scale(t))
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SkyBox {
     Above,
     Flat(Color),

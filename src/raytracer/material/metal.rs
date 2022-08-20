@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
+
 use super::{Material, Scatter};
 use crate::raytracer::{
     core::{math::random_in_unit_sphere, Color, Ray},
     geometry::hittable::HitRecord,
 };
 
-#[derive(Debug, Clone)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metal {
     albedo: Color,
     fuzz: f64,

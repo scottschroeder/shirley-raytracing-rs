@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::ops;
 
 use image::Rgb;
+use serde::{Deserialize, Serialize};
 
 use crate::raytracer::core::Vec3;
 

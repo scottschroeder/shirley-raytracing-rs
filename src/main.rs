@@ -35,6 +35,7 @@ pub mod image;
 use anyhow::Result;
 use rand::prelude::ThreadRng;
 
+use self::raytracer::material::texture::image_texture::earth_builtin;
 use crate::{
     argparse::RenderSettings,
     raytracer::{
@@ -50,9 +51,7 @@ use crate::{
             lighting::{DiffuseLight, FairyLight},
             metal::Metal,
             perlin::NoiseTexture,
-            texture::{
-                checker::CheckerTexture, image_texture::ImageTexture, solid::ConstantTexture,
-            },
+            texture::{checker::CheckerTexture, solid::ConstantTexture},
         },
         scene::{Scene, SceneBuilder},
         skybox::SkyBox,
@@ -63,7 +62,6 @@ const DEFAULT_WIDTH: &str = "640";
 const DEFAULT_SAMPLES: &str = "100";
 const DEFAULT_REFLECT_DEPTH: &str = "50";
 const DEFAULT_OUTPUT: &str = "out.png";
-const EARTH_TEXTURE: &[u8] = include_bytes!("../assets/earthmap.jpg");
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -627,7 +625,7 @@ fn create_perlin_demo() -> Scene {
 fn create_earth_demo() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
 
-    let earth_texture = ImageTexture::load_from_memory(EARTH_TEXTURE)?;
+    let earth_texture = earth_builtin();
     let mat = Lambertian::new(earth_texture);
 
     let ground_texture = CheckerTexture::new(

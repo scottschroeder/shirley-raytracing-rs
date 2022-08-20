@@ -8,9 +8,15 @@ use crate::raytracer::{
     material::texture::Texture,
 };
 
+const EARTH_TEXTURE: &[u8] = include_bytes!("../../../../assets/earthmap.jpg");
+
 #[derive(Debug)]
 pub struct ImageTexture {
     data: image::DynamicImage,
+}
+
+pub fn earth_builtin() -> ImageTexture {
+    ImageTexture::load_from_memory(EARTH_TEXTURE).unwrap()
 }
 
 impl ImageTexture {

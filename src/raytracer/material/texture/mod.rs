@@ -2,6 +2,7 @@ use crate::raytracer::core::{Color, Point};
 
 pub mod checker;
 pub mod image_texture;
+pub mod loader;
 pub mod solid;
 
 pub trait Texture: std::fmt::Debug {
