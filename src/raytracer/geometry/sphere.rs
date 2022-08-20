@@ -1,12 +1,14 @@
 use std::f64::consts::PI;
 
+use serde::{Deserialize, Serialize};
+
+use super::hittable::{Geometry, HitRecord};
 use crate::raytracer::{
     bvh::aabb::Aabb,
     core::{Point, Ray, Vec3},
 };
 
-use super::hittable::{Geometry, HitRecord};
-
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,

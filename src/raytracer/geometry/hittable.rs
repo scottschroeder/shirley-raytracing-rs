@@ -1,4 +1,7 @@
-use crate::raytracer::{core::{Point, Ray, Vec3}, bvh::aabb::Aabb};
+use crate::raytracer::{
+    bvh::aabb::Aabb,
+    core::{Point, Ray, Vec3},
+};
 
 pub struct HitRecord {
     pub point: Point,

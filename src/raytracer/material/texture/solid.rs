@@ -1,5 +1,7 @@
-use crate::raytracer::core::{Color, Point};
-use crate::raytracer::material::texture::Texture;
+use crate::raytracer::{
+    core::{Color, Point},
+    material::texture::Texture,
+};
 
 #[derive(Debug)]
 pub struct ConstantTexture {

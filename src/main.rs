@@ -1,5 +1,4 @@
 pub mod raytracer {
-
     pub mod core {
         mod color;
         pub mod fp;
@@ -7,10 +6,7 @@ pub mod raytracer {
         mod vec3;
 
         pub use color::Color;
-        pub use vec3::Point;
-        pub use vec3::Ray;
-        pub use vec3::Vec3;
-        pub use vec3::EACH_DIMM;
+        pub use vec3::{Point, Ray, Vec3, EACH_DIMM};
     }
 
     pub mod camera;
@@ -20,6 +16,7 @@ pub mod raytracer {
 
     pub mod geometry {
         pub mod hittable;
+        pub mod object;
         pub mod rect;
         pub mod sphere;
     }
@@ -38,27 +35,26 @@ pub mod image;
 use anyhow::Result;
 use rand::prelude::ThreadRng;
 
-use crate::raytracer::{
-    camera::{Camera, CameraBuilder, CameraPosition},
-    core::{Color, Point, Ray, Vec3},
-    geometry::rect::{xy_rect, xz_rect, yz_rect, RectBox},
-    material::{lighting::DiffuseLight, texture::image_texture::ImageTexture},
-    scene::Scene,
-};
 use crate::{
     argparse::RenderSettings,
     raytracer::{
-        core::math::random_real,
-        geometry::sphere::Sphere,
+        camera::{Camera, CameraBuilder, CameraPosition},
+        core::{math::random_real, Color, Point, Ray, Vec3},
+        geometry::{
+            rect::{xy_rect, xz_rect, yz_rect, RectBox},
+            sphere::Sphere,
+        },
         material::{
             dielectric::Dielectric,
             lambertian::Lambertian,
-            lighting::FairyLight,
+            lighting::{DiffuseLight, FairyLight},
             metal::Metal,
             perlin::NoiseTexture,
-            texture::{checker::CheckerTexture, solid::ConstantTexture},
+            texture::{
+                checker::CheckerTexture, image_texture::ImageTexture, solid::ConstantTexture,
+            },
         },
-        scene::SceneBuilder,
+        scene::{Scene, SceneBuilder},
         skybox::SkyBox,
     },
 };

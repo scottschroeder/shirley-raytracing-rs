@@ -1,6 +1,7 @@
 use std::ops;
 
 use rand::rngs::ThreadRng;
+use serde::{Deserialize, Serialize};
 
 use crate::raytracer::core::math::{fmin_one, random_real, Real};
 
@@ -25,7 +26,7 @@ impl Dimm {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
 }
@@ -232,7 +233,7 @@ impl ops::SubAssign for Vec3 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point(pub Vec3);
 
 impl Default for Point {
@@ -241,7 +242,7 @@ impl Default for Point {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Ray {
     pub orig: Point,
     pub direction: Vec3,
@@ -258,4 +259,3 @@ impl Ray {
         Point(self.orig.0 + self.direction.scale(t))
     }
 }
-

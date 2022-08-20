@@ -1,7 +1,5 @@
-use crate::raytracer::core::{Point, Color};
-
 use super::Texture;
-
+use crate::raytracer::core::{Color, Point};
 
 #[derive(Debug)]
 pub struct CheckerTexture {

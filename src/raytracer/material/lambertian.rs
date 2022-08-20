@@ -1,6 +1,8 @@
-use crate::raytracer::{core::{Ray, math::random_unit_vector}, geometry::hittable::HitRecord};
-
-use super::{Material, Scatter, texture::Texture};
+use super::{texture::Texture, Material, Scatter};
+use crate::raytracer::{
+    core::{math::random_unit_vector, Ray},
+    geometry::hittable::HitRecord,
+};
 
 #[derive(Debug, Clone)]
 pub struct Lambertian {

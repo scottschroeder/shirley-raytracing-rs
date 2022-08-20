@@ -1,6 +1,8 @@
-use crate::raytracer::{core::{Ray, Color, math::fmin_one}, geometry::hittable::HitRecord};
-
 use super::{Material, Scatter};
+use crate::raytracer::{
+    core::{math::fmin_one, Color, Ray},
+    geometry::hittable::HitRecord,
+};
 
 #[derive(Debug, Clone)]
 pub struct Dielectric {

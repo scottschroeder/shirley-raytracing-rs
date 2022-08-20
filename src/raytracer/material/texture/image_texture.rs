@@ -2,8 +2,11 @@ use std::path::Path;
 
 use image::GenericImageView;
 use nalgebra::clamp;
-use crate::raytracer::{material::texture::Texture, core::{Color, Point, Vec3}};
 
+use crate::raytracer::{
+    core::{Color, Point, Vec3},
+    material::texture::Texture,
+};
 
 #[derive(Debug)]
 pub struct ImageTexture {

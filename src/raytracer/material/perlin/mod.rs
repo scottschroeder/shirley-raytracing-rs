@@ -1,4 +1,3 @@
-
 use rand::{rngs::ThreadRng, Rng};
 
 use super::texture::Texture;

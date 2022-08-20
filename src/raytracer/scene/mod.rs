@@ -1,13 +1,16 @@
 use super::{
     bvh::{aabb::Aabb, bbox_tree::BboxTree},
     core::Ray,
-    geometry::hittable::{Geometry, HitRecord, Hittable},
+    geometry::{
+        hittable::{Geometry, HitRecord, Hittable},
+        object::GeometricObject,
+    },
     material::Material,
     skybox::SkyBox,
 };
 
 pub struct SceneObject {
-    geometry: Box<dyn Geometry + Sync>,
+    geometry: GeometricObject,
     pub material: Box<dyn Material + Sync>,
 }
 
@@ -83,9 +86,9 @@ impl SceneBuilder {
         self
     }
 
-    pub fn add<G: Geometry + 'static + Sync, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
+    pub fn add<G: Into<GeometricObject>, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
         let obj = SceneObject {
-            geometry: Box::new(g),
+            geometry: g.into(),
             material: Box::new(m),
         };
         if obj.bounding_box().is_some() {
@@ -139,14 +142,6 @@ impl<'a, 'b> WorkspaceScene<'a, 'b> {
 }
 
 impl Scene {
-    pub fn add<G: Geometry + 'static + Sync, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
-        let obj = SceneObject {
-            geometry: Box::new(g),
-            material: Box::new(m),
-        };
-        self.objects.objects.push(obj);
-    }
-
     pub fn workspace_scene<'a, 'b>(
         &'a self,
         hit_stack: &'b mut Vec<usize>,
@@ -161,12 +156,7 @@ impl Scene {
 
 impl Hittable for Scene {
     type Leaf = SceneObject;
-    fn hit(
-        &self,
-        ray: &Ray,
-        t_min: f64,
-        t_max: f64,
-    ) -> Option<(&SceneObject, HitRecord)> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<(&SceneObject, HitRecord)> {
         let closest = self.objects.hit(ray, t_min, t_max);
         let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
         let new_closest = self.tree.hit(ray, t_min, t_closest);

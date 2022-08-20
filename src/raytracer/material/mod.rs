@@ -5,11 +5,8 @@ pub mod metal;
 pub mod perlin;
 pub mod texture;
 
-use crate::raytracer::core::{
-    Color, Ray,
-};
-
 use super::geometry::hittable::HitRecord;
+use crate::raytracer::core::{Color, Ray};
 
 #[derive(Debug, Clone)]
 pub struct Scatter {

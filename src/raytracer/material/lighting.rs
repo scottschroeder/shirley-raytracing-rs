@@ -1,9 +1,8 @@
+use super::{texture::Texture, Material, Scatter};
 use crate::raytracer::{
     core::{math::random_unit_vector, Color, Ray},
     geometry::hittable::HitRecord,
 };
-
-use super::{texture::Texture, Material, Scatter};
 
 pub struct DiffuseLight {
     pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,

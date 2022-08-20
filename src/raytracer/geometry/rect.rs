@@ -1,9 +1,16 @@
-use crate::raytracer::{core::{Ray, Vec3, Point}, bvh::aabb::Aabb};
+use serde::{Deserialize, Serialize};
 
 use super::hittable::{Geometry, HitRecord};
-
+use crate::raytracer::{
+    bvh::aabb::Aabb,
+    core::{Point, Ray, Vec3},
+};
 
 const BBOX_WIDTH: f64 = 0.0001;
+
+pub type RectXY = Rect<0, 1>;
+pub type RectYZ = Rect<1, 2>;
+pub type RectXZ = Rect<0, 2>;
 
 pub fn xy_rect(d1_min: f64, d1_max: f64, d2_min: f64, d2_max: f64, offset: f64) -> Rect<0, 1> {
     Rect {
@@ -35,6 +42,7 @@ pub fn xz_rect(d1_min: f64, d1_max: f64, d2_min: f64, d2_max: f64, offset: f64) 
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Rect<const D1: usize, const D2: usize> {
     d1_min: f64,
     d1_max: f64,
@@ -91,6 +99,7 @@ impl<const D1: usize, const D2: usize> Geometry for Rect<D1, D2> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RectBox {
     min: Point,
     max: Point,
@@ -153,4 +162,3 @@ impl Geometry for RectBox {
         })
     }
 }
-

@@ -1,6 +1,8 @@
-use crate::raytracer::{core::{Color, Ray, math::random_in_unit_sphere}, geometry::hittable::HitRecord};
-
 use super::{Material, Scatter};
+use crate::raytracer::{
+    core::{math::random_in_unit_sphere, Color, Ray},
+    geometry::hittable::HitRecord,
+};
 
 #[derive(Debug, Clone)]
 pub struct Metal {
