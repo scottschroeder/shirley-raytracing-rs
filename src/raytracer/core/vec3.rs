@@ -2,7 +2,7 @@ use std::ops;
 
 use rand::rngs::ThreadRng;
 
-use crate::util::math::{fmin_one, random_real, Real};
+use crate::raytracer::core::math::{fmin_one, random_real, Real};
 
 const NEAR_ZERO: f64 = 1e-8;
 
@@ -258,3 +258,4 @@ impl Ray {
         Point(self.orig.0 + self.direction.scale(t))
     }
 }
+

@@ -2,7 +2,7 @@ use std::ops;
 
 use image::Rgb;
 
-use crate::util::Vec3;
+use crate::raytracer::core::Vec3;
 
 const COLOR_SCALE: f64 = 255.999;
 
@@ -36,3 +36,4 @@ impl Color {
         ])
     }
 }
+

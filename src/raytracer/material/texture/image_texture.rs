@@ -2,11 +2,8 @@ use std::path::Path;
 
 use image::GenericImageView;
 use nalgebra::clamp;
+use crate::raytracer::{material::texture::Texture, core::{Color, Point, Vec3}};
 
-use crate::{
-    objects::texture::Texture,
-    util::{Color, Vec3},
-};
 
 #[derive(Debug)]
 pub struct ImageTexture {
@@ -26,7 +23,7 @@ impl ImageTexture {
 }
 
 impl Texture for ImageTexture {
-    fn value(&self, u: f64, v: f64, _p: &crate::util::Point) -> Color {
+    fn value(&self, u: f64, v: f64, _p: &Point) -> Color {
         let u = clamp(u, 0.0, 1.0);
         let v = 1.0 - clamp(v, 0.0, 1.0);
 

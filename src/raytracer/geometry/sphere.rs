@@ -1,7 +1,11 @@
 use std::f64::consts::PI;
 
-use super::{hittable::HitRecord, Aabb, Geometry};
-use crate::util::{Point, Ray, Vec3};
+use crate::raytracer::{
+    bvh::aabb::Aabb,
+    core::{Point, Ray, Vec3},
+};
+
+use super::hittable::{Geometry, HitRecord};
 
 pub struct Sphere {
     pub center: Point,
@@ -45,7 +49,7 @@ impl Geometry for Sphere {
         Some(HitRecord::new(ray, point, normal, root, u, v))
     }
 
-    fn bounding_box(&self) -> Option<super::Aabb> {
+    fn bounding_box(&self) -> Option<Aabb> {
         let r = Vec3::new(self.radius, self.radius, self.radius);
         Some(Aabb {
             min: Point(self.center.0 - r),

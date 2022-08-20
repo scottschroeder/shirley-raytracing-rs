@@ -1,7 +1,7 @@
 use rand::prelude::{Rng, ThreadRng};
 
 use super::fp::fmin;
-use crate::util::Vec3;
+use crate::raytracer::core::Vec3;
 pub type Real = f64;
 
 #[inline]

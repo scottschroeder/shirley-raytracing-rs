@@ -1,11 +1,8 @@
 use std::collections::HashSet;
 
-use super::{
-    aabb::{bounding, surrounding_box},
-    hittable::HitRecord,
-    Aabb, Geometry, Hittable,
-};
-use crate::util::Ray;
+use crate::raytracer::{core::Ray, geometry::hittable::{Geometry, HitRecord, Hittable}};
+
+use super::aabb::{Aabb, bounding, surrounding_box};
 
 #[derive(Clone)]
 enum NodePointer {

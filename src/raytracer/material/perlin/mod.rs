@@ -1,7 +1,8 @@
+
 use rand::{rngs::ThreadRng, Rng};
 
 use super::texture::Texture;
-use crate::util::{Color, Point, Vec3};
+use crate::raytracer::core::{Color, Point, Vec3};
 
 const PERLIN_POINT_COUNT: usize = 256;
 const C_SIZE: usize = 2;
@@ -154,7 +155,7 @@ impl Default for NoiseTexture {
 }
 
 impl Texture for NoiseTexture {
-    fn value(&self, _u: f64, _v: f64, p: &Point) -> crate::util::Color {
+    fn value(&self, _u: f64, _v: f64, p: &Point) -> crate::raytracer::core::Color {
         // let scaled = Point(p.0.scale(self.scale));
         // noise
         // let noise = 0.5 * (1.0 + self.noise.noise(scaled));

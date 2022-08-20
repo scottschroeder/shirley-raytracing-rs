@@ -1,4 +1,4 @@
-use crate::util::{Color, Ray, Vec3};
+use crate::raytracer::core::{Color, Ray, Vec3};
 
 fn skybox(r: &Ray) -> Color {
     let unit = r.direction.unit();

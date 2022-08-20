@@ -1,5 +1,10 @@
-use super::{bbox_tree::BboxTree, hittable::HitRecord, skybox::SkyBox};
-use crate::objects::{material::Material, Geometry, Hittable};
+use super::{
+    bvh::{aabb::Aabb, bbox_tree::BboxTree},
+    core::Ray,
+    geometry::hittable::{Geometry, HitRecord, Hittable},
+    material::Material,
+    skybox::SkyBox,
+};
 
 pub struct SceneObject {
     geometry: Box<dyn Geometry + Sync>,
@@ -7,21 +12,21 @@ pub struct SceneObject {
 }
 
 impl Geometry for SceneObject {
-    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         self.geometry.hit(ray, t_min, t_max)
     }
 
-    fn bounding_box(&self) -> Option<super::Aabb> {
+    fn bounding_box(&self) -> Option<Aabb> {
         self.geometry.bounding_box()
     }
 }
 
 impl<'a> Geometry for &'a SceneObject {
-    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         (*self).hit(ray, t_min, t_max)
     }
 
-    fn bounding_box(&self) -> Option<super::Aabb> {
+    fn bounding_box(&self) -> Option<Aabb> {
         (*self).bounding_box()
     }
 }
@@ -43,7 +48,7 @@ where
     for<'a> &'a T: Geometry,
 {
     type Leaf = T;
-    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<(&T, HitRecord)> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<(&T, HitRecord)> {
         let mut closest: Option<(&T, HitRecord)> = None;
 
         for obj in &self.objects {
@@ -122,7 +127,7 @@ pub struct WorkspaceScene<'a, 'b> {
 impl<'a, 'b> WorkspaceScene<'a, 'b> {
     pub fn hit_workspace(
         &mut self,
-        ray: &crate::util::Ray,
+        ray: &Ray,
         t_min: f64,
         t_max: f64,
     ) -> Option<(&SceneObject, HitRecord)> {
@@ -158,7 +163,7 @@ impl Hittable for Scene {
     type Leaf = SceneObject;
     fn hit(
         &self,
-        ray: &crate::util::Ray,
+        ray: &Ray,
         t_min: f64,
         t_max: f64,
     ) -> Option<(&SceneObject, HitRecord)> {

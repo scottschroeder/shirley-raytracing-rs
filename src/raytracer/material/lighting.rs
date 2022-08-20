@@ -1,9 +1,9 @@
-use super::{
-    hittable::HitRecord,
-    material::{Material, Scatter},
-    texture::Texture,
+use crate::raytracer::{
+    core::{math::random_unit_vector, Color, Ray},
+    geometry::hittable::HitRecord,
 };
-use crate::util::{math::random_unit_vector, Color, Ray};
+
+use super::{texture::Texture, Material, Scatter};
 
 pub struct DiffuseLight {
     pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
@@ -18,15 +18,11 @@ impl DiffuseLight {
 }
 
 impl Material for DiffuseLight {
-    fn scatter(
-        &self,
-        _ray: &crate::util::Ray,
-        _record: &super::hittable::HitRecord,
-    ) -> Option<super::material::Scatter> {
+    fn scatter(&self, _ray: &Ray, _record: &HitRecord) -> Option<Scatter> {
         None
     }
 
-    fn emitted(&self, _ray: &Ray, record: &HitRecord) -> Option<crate::util::Color> {
+    fn emitted(&self, _ray: &Ray, record: &HitRecord) -> Option<Color> {
         Some(self.albedo.value(record.u, record.v, &record.point))
     }
 
@@ -63,7 +59,7 @@ impl Material for FairyLight {
         })
     }
 
-    fn emitted(&self, ray: &Ray, record: &HitRecord) -> Option<crate::util::Color> {
+    fn emitted(&self, ray: &Ray, record: &HitRecord) -> Option<Color> {
         let src_color = self.albedo.value(record.u, record.v, &record.point);
 
         let scale = record.normal.dot(&ray.direction.scale(-1.0));

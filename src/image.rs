@@ -1,8 +1,8 @@
 use std::io;
 
-use crate::{
+use crate::raytracer::{
     camera::Dimmensions,
-    util::{Color, Vec3},
+    core::{Color, Vec3},
 };
 
 const PPM_COLOR_SCALE: f64 = 255.999;

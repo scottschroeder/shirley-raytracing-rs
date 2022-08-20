@@ -1,56 +1,66 @@
-pub mod util {
-    mod color;
-    pub(crate) mod fp;
-    pub mod math;
-    mod vec3;
-    pub use color::Color;
-    pub use vec3::{Dimm, Point, Ray, Vec3, EACH_DIMM};
-}
-pub mod camera;
-pub mod objects {
-    mod aabb;
-    mod bbox_tree;
-    mod hittable;
-    pub mod lighting;
-    pub mod material;
-    pub mod perlin;
-    pub mod rect;
-    pub mod scene;
-    pub mod skybox;
-    pub mod sphere;
-    pub mod texture;
-    pub use aabb::Aabb;
-    pub use hittable::{Geometry, Hittable};
-}
-pub mod image;
+pub mod raytracer {
 
-pub mod texture;
+    pub mod core {
+        mod color;
+        pub mod fp;
+        pub mod math;
+        mod vec3;
+
+        pub use color::Color;
+        pub use vec3::Point;
+        pub use vec3::Ray;
+        pub use vec3::Vec3;
+        pub use vec3::EACH_DIMM;
+    }
+
+    pub mod camera;
+    pub mod scene;
+
+    pub mod skybox;
+
+    pub mod geometry {
+        pub mod hittable;
+        pub mod rect;
+        pub mod sphere;
+    }
+
+    pub mod bvh {
+        pub mod aabb;
+        pub mod bbox_tree;
+    }
+
+    pub mod material;
+}
 
 mod argparse;
+pub mod image;
 
 use anyhow::Result;
-use camera::{Camera, CameraPosition};
-use objects::scene::Scene;
 use rand::prelude::ThreadRng;
-use util::{math::random_real, Color, Point, Ray, Vec3};
 
-use self::{
-    argparse::RenderSettings,
-    objects::{
-        perlin::NoiseTexture,
-        rect::{xy_rect, xz_rect, yz_rect, RectBox},
-        texture::ConstantTexture,
-    },
+use crate::raytracer::{
+    camera::{Camera, CameraBuilder, CameraPosition},
+    core::{Color, Point, Ray, Vec3},
+    geometry::rect::{xy_rect, xz_rect, yz_rect, RectBox},
+    material::{lighting::DiffuseLight, texture::image_texture::ImageTexture},
+    scene::Scene,
 };
 use crate::{
-    objects::{
-        lighting::{DiffuseLight, FairyLight},
-        material::{Dielectric, Lambertian, Metal},
+    argparse::RenderSettings,
+    raytracer::{
+        core::math::random_real,
+        geometry::sphere::Sphere,
+        material::{
+            dielectric::Dielectric,
+            lambertian::Lambertian,
+            lighting::FairyLight,
+            metal::Metal,
+            perlin::NoiseTexture,
+            texture::{checker::CheckerTexture, solid::ConstantTexture},
+        },
         scene::SceneBuilder,
-        sphere::Sphere,
-        texture::CheckerTexture,
+        skybox::SkyBox,
     },
-    texture::ImageTexture,
 };
 
 const DEFAULT_WIDTH: &str = "640";
@@ -175,7 +185,7 @@ fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
     let scene = create_cornell_box();
 
     let width = args.config.width;
-    let mut camera = camera::CameraBuilder::default();
+    let mut camera = CameraBuilder::default();
     camera
         .vfov(40.0)
         .focal_length(1.0)
@@ -196,7 +206,7 @@ fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
 
 fn default_camera(args: &RenderSettings) -> Result<(Camera, CameraPosition)> {
     let width = args.width;
-    let mut camera = camera::CameraBuilder::default();
+    let mut camera = CameraBuilder::default();
     camera
         .vfov(20.0)
         .focal_length(1.0)
@@ -309,7 +319,7 @@ fn random_scene(night: bool) -> Scene {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
     if night {
-        scene.set_skybox(objects::skybox::SkyBox::None);
+        scene.set_skybox(SkyBox::None);
     }
 
     // let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.5, 0.5, 0.5))));
@@ -321,7 +331,7 @@ fn random_scene(night: bool) -> Scene {
     let mat_ground = Lambertian::new(ground_texture);
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, -1000.0, 0.0)),
+            center: Point(Vec3::new(0.0, -1000.0, 0.0)),
             radius: 1000.0,
         },
         mat_ground,
@@ -329,7 +339,7 @@ fn random_scene(night: bool) -> Scene {
 
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, 1.0, 0.0)),
+            center: Point(Vec3::new(0.0, 1.0, 0.0)),
             radius: 1.0,
         },
         Dielectric { ir: 1.5 },
@@ -338,7 +348,7 @@ fn random_scene(night: bool) -> Scene {
     if night {
         scene.add(
             Sphere {
-                center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
+                center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
             },
             FairyLight::new(ConstantTexture::from(Color(
@@ -348,7 +358,7 @@ fn random_scene(night: bool) -> Scene {
     } else {
         scene.add(
             Sphere {
-                center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
+                center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
             },
             Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
@@ -356,7 +366,7 @@ fn random_scene(night: bool) -> Scene {
     }
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(4.0, 1.0, 0.0)),
+            center: Point(Vec3::new(4.0, 1.0, 0.0)),
             radius: 1.0,
         },
         Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
@@ -456,45 +466,45 @@ fn create_scene() -> Scene {
 
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, -100.5, -1.0)),
+            center: Point(Vec3::new(0.0, -100.5, -1.0)),
             radius: 100.0,
         },
         mat_ground,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, 0.0, -1.0)),
+            center: Point(Vec3::new(0.0, 0.0, -1.0)),
             radius: 0.5,
         },
         mat_center,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+            center: Point(Vec3::new(-1.0, 0.0, -1.0)),
             radius: 0.5,
         },
         mat_left.clone(),
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+            center: Point(Vec3::new(-1.0, 0.0, -1.0)),
             radius: -0.4,
         },
         mat_left,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
+            center: Point(Vec3::new(1.0, 0.0, -1.0)),
             radius: 0.5,
         },
         mat_right,
     );
     // scene.add(objects::sphere::Sphere {
-    //     center: util::Point(Vec3::new(-1.0, 0.0, -1.0)),
+    //     center: Point(Vec3::new(-1.0, 0.0, -1.0)),
     //     radius: 0.3,
     // });
     // scene.add(objects::sphere::Sphere {
-    //     center: util::Point(Vec3::new(1.0, 0.0, -1.0)),
+    //     center: Point(Vec3::new(1.0, 0.0, -1.0)),
     //     radius: 0.3,
     // });
     scene.finalize()
@@ -502,7 +512,7 @@ fn create_scene() -> Scene {
 
 fn create_cornell_box() -> Scene {
     let mut scene = SceneBuilder::default();
-    scene.set_skybox(objects::skybox::SkyBox::None);
+    scene.set_skybox(SkyBox::None);
 
     let red = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.65, 0.05, 0.05))));
     let white = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.73, 0.73, 0.73))));
@@ -543,7 +553,7 @@ fn create_cornell_box() -> Scene {
 }
 fn create_box_light() -> Scene {
     let mut scene = SceneBuilder::default();
-    scene.set_skybox(objects::skybox::SkyBox::None);
+    scene.set_skybox(SkyBox::None);
 
     let mat = Lambertian::new(NoiseTexture::scale(4.0));
 
@@ -556,14 +566,14 @@ fn create_box_light() -> Scene {
 
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
             radius: 1000.0,
         },
         mat_ground,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, 2.0, -0.0)),
+            center: Point(Vec3::new(0.0, 2.0, -0.0)),
             radius: 2.0,
         },
         mat,
@@ -603,14 +613,14 @@ fn create_perlin_demo() -> Scene {
 
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
             radius: 1000.0,
         },
         mat_ground,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, 2.0, -0.0)),
+            center: Point(Vec3::new(0.0, 2.0, -0.0)),
             radius: 2.0,
         },
         mat,
@@ -633,14 +643,14 @@ fn create_earth_demo() -> anyhow::Result<Scene> {
 
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(0.0, -1000.0, -0.0)),
+            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
             radius: 1000.0,
         },
         mat_ground,
     );
     scene.add(
         Sphere {
-            center: util::Point(Vec3::new(4.0, 1.0, 1.0)),
+            center: Point(Vec3::new(4.0, 1.0, 1.0)),
             radius: 1.0,
         },
         mat,

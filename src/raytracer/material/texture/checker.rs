@@ -1,25 +1,7 @@
-use crate::util::{Color, Point};
+use crate::raytracer::core::{Point, Color};
 
-pub trait Texture: std::fmt::Debug {
-    fn value(&self, u: f64, v: f64, p: &Point) -> Color;
-}
+use super::Texture;
 
-#[derive(Debug)]
-pub struct ConstantTexture {
-    color: Color,
-}
-
-impl From<Color> for ConstantTexture {
-    fn from(c: Color) -> Self {
-        ConstantTexture { color: c }
-    }
-}
-
-impl Texture for ConstantTexture {
-    fn value(&self, _u: f64, _v: f64, _p: &Point) -> Color {
-        self.color
-    }
-}
 
 #[derive(Debug)]
 pub struct CheckerTexture {

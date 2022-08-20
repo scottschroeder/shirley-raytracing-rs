@@ -1,5 +1,7 @@
-use super::{hittable::HitRecord, Aabb, Geometry};
-use crate::util::{Point, Ray, Vec3};
+use crate::raytracer::{core::{Ray, Vec3, Point}, bvh::aabb::Aabb};
+
+use super::hittable::{Geometry, HitRecord};
+
 
 const BBOX_WIDTH: f64 = 0.0001;
 
@@ -42,9 +44,9 @@ pub struct Rect<const D1: usize, const D2: usize> {
 }
 
 impl<const D1: usize, const D2: usize> Geometry for Rect<D1, D2> {
-    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
-        let D3 = 3 - D1 - D2;
-        let t = (self.offset - ray.orig.0[D3]) / ray.direction[D3];
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        let dimm_normal = 3 - D1 - D2;
+        let t = (self.offset - ray.orig.0[dimm_normal]) / ray.direction[dimm_normal];
         if t < t_min || t > t_max {
             return None;
         }
@@ -63,24 +65,24 @@ impl<const D1: usize, const D2: usize> Geometry for Rect<D1, D2> {
         let root = t;
 
         let mut normal = Vec3::default();
-        normal[D3] = 1.0;
+        normal[dimm_normal] = 1.0;
 
         let point = ray.at(t);
         Some(HitRecord::new(ray, point, normal, root, u, v))
     }
 
     fn bounding_box(&self) -> Option<Aabb> {
-        let D3 = 3 - D1 - D2;
+        let dimm_normal = 3 - D1 - D2;
         let mut min = Vec3::default();
         let mut max = Vec3::default();
 
         min[D1] = self.d1_min;
         min[D2] = self.d2_min;
-        min[D3] = self.offset - BBOX_WIDTH;
+        min[dimm_normal] = self.offset - BBOX_WIDTH;
 
         max[D1] = self.d1_max;
         max[D2] = self.d2_max;
-        max[D3] = self.offset + BBOX_WIDTH;
+        max[dimm_normal] = self.offset + BBOX_WIDTH;
 
         Some(Aabb {
             min: Point(min),
@@ -133,7 +135,7 @@ fn check_closer<const D1: usize, const D2: usize>(
 }
 
 impl Geometry for RectBox {
-    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let mut closest: Option<HitRecord> = None;
         check_closer(ray, t_min, t_max, &mut closest, &self.xy_sides[0]);
         check_closer(ray, t_min, t_max, &mut closest, &self.xy_sides[1]);
@@ -151,3 +153,4 @@ impl Geometry for RectBox {
         })
     }
 }
+
