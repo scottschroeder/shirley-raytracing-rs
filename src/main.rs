@@ -38,13 +38,13 @@ use self::{
     argparse::RenderSettings,
     objects::{
         perlin::NoiseTexture,
-        rect::{xy_rect, xz_rect, yz_rect},
+        rect::{xy_rect, xz_rect, yz_rect, RectBox},
         texture::ConstantTexture,
     },
 };
 use crate::{
     objects::{
-        lighting::DiffuseLight,
+        lighting::{DiffuseLight, FairyLight},
         material::{Dielectric, Lambertian, Metal},
         scene::SceneBuilder,
         sphere::Sphere,
@@ -55,6 +55,7 @@ use crate::{
 
 const DEFAULT_WIDTH: &str = "640";
 const DEFAULT_SAMPLES: &str = "100";
+const DEFAULT_REFLECT_DEPTH: &str = "50";
 const DEFAULT_OUTPUT: &str = "out.png";
 const EARTH_TEXTURE: &[u8] = include_bytes!("../assets/earthmap.jpg");
 
@@ -95,43 +96,53 @@ fn ray_color(
 
     while max_depth > 0 {
         if let Some((obj, r)) = workspace.hit_workspace(&ray, 0.001, std::f64::INFINITY) {
-            if let Some(e) = obj.material.emitted(r.u, r.v, &r.point) {
+            if let Some(e) = obj.material.emitted(&ray, &r) {
                 emitted += Color(attenuation.0 * e.0);
             }
             if let Some(scatter) = obj.material.scatter(&ray, &r) {
                 attenuation = Color(attenuation.0 * scatter.attenuation.0);
                 ray = scatter.direction;
             } else {
-                return emitted;
-                // // this might not be a bug, but hasn't come up yet, so when this panic does happen
-                // // I want to consider what I'm doing to have an object which does not reflect.
-                // //
-                // // I suspect this will be an emitted light source, but then attenuation should not
-                // // be 0.
-                // panic!("scatter without attenuation?");
+                break;
             }
         } else {
-            return Color(emitted.0 + attenuation.0 * scene.skybox.background(&ray).0);
+            emitted += Color(attenuation.0 * scene.skybox.background(&ray).0);
+            break;
         }
         max_depth -= 1
     }
-    Color::default()
+    emitted
 }
 
 struct Frame<'a> {
     camera: &'a Camera,
     pos: &'a CameraPosition,
     scene: &'a Scene,
-    samples: usize,
 }
 
 fn run_test(_args: &argparse::Test) -> Result<()> {
     log::error!("there is nothing to test!");
     Ok(())
 }
-
 fn render_random(args: &argparse::RenderRandom) -> Result<()> {
     let scene = random_scene(args.night);
+    // 1170 x 2532
+    // let width = args.config.width;
+    // let mut camera = camera::CameraBuilder::default();
+    // camera
+    //     .vfov(40.0)
+    //     .focal_length(1.0)
+    //     .aperture(0.001)
+    //     .width(width)
+    //     .aspect_ratio((1170, 2532));
+
+    // let camera = camera.build()?;
+    // let mut pos = CameraPosition::look_at(
+    //     Point(Vec3::new(13.0, 2.0, 3.0)),
+    //     Point(Vec3::new(0.0, -1.0, 0.0)),
+    //     Vec3::new(0.0, 1.0, 0.0),
+    // );
+    // pos.focus_length = 10.0;
     let (camera, pos) = default_camera(&args.config)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
@@ -226,16 +237,12 @@ fn render_scene(
     let mut image = image::Image::from_dimm(camera.dimm);
     image.samples = samples;
 
-    let frame = Frame {
-        camera,
-        pos,
-        scene,
-        samples,
-    };
+    let frame = Frame { camera, pos, scene };
 
     log::trace!("render");
 
     let scanlines = image.scanlines_mut();
+    let max_depth = args.max_reflect;
 
     let count = std::sync::atomic::AtomicUsize::new(0);
     let total = scanlines.len();
@@ -246,7 +253,15 @@ fn render_scene(
             .iter_mut()
             .enumerate()
             .for_each(|(line_idx, buf)| {
-                render_scanline(&frame, &mut rng, &mut hit_stack, line_idx, buf);
+                render_scanline(
+                    &frame,
+                    &mut rng,
+                    samples,
+                    max_depth,
+                    &mut hit_stack,
+                    line_idx,
+                    buf,
+                );
                 let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 log::debug!("render line {}/{}", x + 1, total);
             })
@@ -255,7 +270,7 @@ fn render_scene(
             || (rand::thread_rng(), Vec::<usize>::new()),
             // rand::thread_rng,
             |(rng, hit_stack), (line_idx, buf)| {
-                render_scanline(&frame, rng, hit_stack, line_idx, buf);
+                render_scanline(&frame, rng, samples, max_depth, hit_stack, line_idx, buf);
                 let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 log::debug!("render line {}/{}", x + 1, total);
             },
@@ -269,6 +284,8 @@ fn render_scene(
 fn render_scanline(
     frame: &Frame<'_>,
     rng: &mut ThreadRng,
+    samples: usize,
+    max_depth: usize,
     hit_stack: &mut Vec<usize>,
     line_idx: usize,
     buf: &mut [Color],
@@ -276,13 +293,13 @@ fn render_scanline(
     use rand::prelude::*;
     for (idx, buf_c) in buf.iter_mut().enumerate() {
         let mut c = Color::default();
-        for _ in 0..frame.samples {
+        for _ in 0..samples {
             let r = frame.camera.pixel_ray(
                 frame.pos,
                 idx as f64 + rng.gen::<f64>(),
                 line_idx as f64 + rng.gen::<f64>(),
             );
-            c += ray_color(hit_stack, &r, frame.scene, 50);
+            c += ray_color(hit_stack, &r, frame.scene, max_depth);
         }
         *buf_c = c
     }
@@ -317,13 +334,26 @@ fn random_scene(night: bool) -> Scene {
         },
         Dielectric { ir: 1.5 },
     );
-    scene.add(
-        Sphere {
-            center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
-            radius: 1.0,
-        },
-        DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
-    );
+
+    if night {
+        scene.add(
+            Sphere {
+                center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
+                radius: 1.0,
+            },
+            FairyLight::new(ConstantTexture::from(Color(
+                Vec3::new(0.7, 0.6, 0.5).scale(1.3),
+            ))),
+        );
+    } else {
+        scene.add(
+            Sphere {
+                center: util::Point(Vec3::new(-4.0, 1.0, 0.0)),
+                radius: 1.0,
+            },
+            Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
+        );
+    }
     scene.add(
         Sphere {
             center: util::Point(Vec3::new(4.0, 1.0, 0.0)),
@@ -331,6 +361,11 @@ fn random_scene(night: bool) -> Scene {
         },
         Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
     );
+
+    // scene.add(
+    //     yz_rect(0.0, 2.0, -0.0, 3.0, -8.0),
+    //     Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
+    // );
 
     let mut rng = thread_rng();
 
@@ -344,15 +379,15 @@ fn random_scene(night: bool) -> Scene {
         Marble,
     }
 
-    let light_weight = if night { 4 } else { 0 };
+    let light_weight = if night { 4.0 } else { 0.0 };
 
     let types = [
-        (BallTypes::Color, 4),
+        (BallTypes::Color, 4.0),
         (BallTypes::SphereLight, light_weight),
-        (BallTypes::Glass, 1),
-        (BallTypes::Metal, 4),
-        (BallTypes::Checker, 1),
-        (BallTypes::Marble, 1),
+        (BallTypes::Glass, 1.0),
+        (BallTypes::Metal, 4.0),
+        (BallTypes::Checker, 0.3),
+        (BallTypes::Marble, 0.0),
     ];
 
     for a in -11..11 {
@@ -376,8 +411,8 @@ fn random_scene(night: bool) -> Scene {
                     scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
                 }
                 BallTypes::SphereLight => {
-                    let albedo = Color((Vec3::random() * Vec3::random()).scale(4.0));
-                    scene.add(sphere, DiffuseLight::new(ConstantTexture::from(albedo)));
+                    let albedo = Color((Vec3::random() * Vec3::random()).scale(5.0));
+                    scene.add(sphere, FairyLight::new(ConstantTexture::from(albedo)));
                 }
                 BallTypes::Glass => {
                     // glass
@@ -472,7 +507,7 @@ fn create_cornell_box() -> Scene {
     let red = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.65, 0.05, 0.05))));
     let white = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.73, 0.73, 0.73))));
     let green = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.12, 0.45, 0.15))));
-    let light = DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(15.0, 15.0, 15.0))));
+    let light = FairyLight::new(ConstantTexture::from(Color(Vec3::new(15.0, 15.0, 15.0))));
 
     let box_size = 555.0;
     scene.add(yz_rect(0.0, box_size, 0.0, box_size, box_size), green);
@@ -483,7 +518,27 @@ fn create_cornell_box() -> Scene {
         xz_rect(0.0, box_size, 0.0, box_size, box_size),
         white.clone(),
     );
-    scene.add(xy_rect(0.0, box_size, 0.0, box_size, box_size), white);
+    scene.add(
+        xy_rect(0.0, box_size, 0.0, box_size, box_size),
+        white.clone(),
+    );
+
+    scene.add(
+        RectBox::new(
+            Point(Vec3::new(130.0, 0.0, 65.0)),
+            Point(Vec3::new(295.0, 165.0, 230.0)),
+        ),
+        white.clone(),
+    );
+
+    scene.add(
+        RectBox::new(
+            Point(Vec3::new(265.0, 0.0, 295.0)),
+            Point(Vec3::new(430.0, 330.0, 460.0)),
+        ),
+        white,
+    );
+
     scene.finalize()
 }
 fn create_box_light() -> Scene {

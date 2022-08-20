@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use super::{DEFAULT_OUTPUT, DEFAULT_SAMPLES, DEFAULT_WIDTH};
+use super::{DEFAULT_OUTPUT, DEFAULT_REFLECT_DEPTH, DEFAULT_SAMPLES, DEFAULT_WIDTH};
 
 pub fn get_args() -> CliOpts {
     CliOpts::parse()
@@ -82,6 +82,10 @@ pub struct RenderSettings {
     /// Number of iterations to sample each pixel
     #[clap(short, long, default_value=DEFAULT_SAMPLES)]
     pub samples: usize,
+
+    /// Maximum number of bounces
+    #[clap(short, long, default_value=DEFAULT_REFLECT_DEPTH)]
+    pub max_reflect: usize,
 
     /// Render on a single core
     #[clap(long)]

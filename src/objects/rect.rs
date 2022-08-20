@@ -1,5 +1,5 @@
 use super::{hittable::HitRecord, Aabb, Geometry};
-use crate::util::{Point, Vec3};
+use crate::util::{Point, Ray, Vec3};
 
 const BBOX_WIDTH: f64 = 0.0001;
 
@@ -85,6 +85,69 @@ impl<const D1: usize, const D2: usize> Geometry for Rect<D1, D2> {
         Some(Aabb {
             min: Point(min),
             max: Point(max),
+        })
+    }
+}
+
+pub struct RectBox {
+    min: Point,
+    max: Point,
+    xy_sides: [Rect<0, 1>; 2],
+    yz_sides: [Rect<1, 2>; 2],
+    xz_sides: [Rect<0, 2>; 2],
+}
+
+impl RectBox {
+    pub fn new(p0: Point, p1: Point) -> RectBox {
+        RectBox {
+            min: p0,
+            max: p1,
+            xy_sides: [
+                xy_rect(p0.0.x(), p1.0.x(), p0.0.y(), p1.0.y(), p1.0.z()),
+                xy_rect(p0.0.x(), p1.0.x(), p0.0.y(), p1.0.y(), p0.0.z()),
+            ],
+            yz_sides: [
+                yz_rect(p0.0.y(), p1.0.y(), p0.0.z(), p1.0.z(), p1.0.x()),
+                yz_rect(p0.0.y(), p1.0.y(), p0.0.z(), p1.0.z(), p0.0.x()),
+            ],
+            xz_sides: [
+                xz_rect(p0.0.x(), p1.0.x(), p0.0.z(), p1.0.z(), p1.0.y()),
+                xz_rect(p0.0.x(), p1.0.x(), p0.0.z(), p1.0.z(), p0.0.y()),
+            ],
+        }
+    }
+}
+
+fn check_closer<const D1: usize, const D2: usize>(
+    ray: &Ray,
+    t_min: f64,
+    t_max: f64,
+    current: &mut Option<HitRecord>,
+    r: &Rect<D1, D2>,
+) {
+    let t_closest = current.as_ref().map(|r| r.t).unwrap_or(t_max);
+    if let Some(hit) = r.hit(ray, t_min, t_closest) {
+        let mut new_hit = Some(hit);
+        std::mem::swap(current, &mut new_hit)
+    }
+}
+
+impl Geometry for RectBox {
+    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        let mut closest: Option<HitRecord> = None;
+        check_closer(ray, t_min, t_max, &mut closest, &self.xy_sides[0]);
+        check_closer(ray, t_min, t_max, &mut closest, &self.xy_sides[1]);
+        check_closer(ray, t_min, t_max, &mut closest, &self.yz_sides[0]);
+        check_closer(ray, t_min, t_max, &mut closest, &self.yz_sides[1]);
+        check_closer(ray, t_min, t_max, &mut closest, &self.xz_sides[0]);
+        check_closer(ray, t_min, t_max, &mut closest, &self.xz_sides[1]);
+        closest
+    }
+
+    fn bounding_box(&self) -> Option<Aabb> {
+        Some(Aabb {
+            min: self.min,
+            max: self.max,
         })
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     objects::hittable::HitRecord,
     util::{
         math::{fmin_one, random_in_unit_sphere, random_unit_vector},
-        Color, Point, Ray,
+        Color, Ray,
     },
 };
 
@@ -15,7 +15,7 @@ pub struct Scatter {
 
 pub trait Material {
     fn scatter(&self, ray: &Ray, record: &HitRecord) -> Option<Scatter>;
-    fn emitted(&self, _u: f64, _v: f64, _point: &Point) -> Option<Color> {
+    fn emitted(&self, _ray: &Ray, _record: &HitRecord) -> Option<Color> {
         None
     }
 }

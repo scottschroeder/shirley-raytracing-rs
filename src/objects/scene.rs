@@ -16,9 +16,49 @@ impl Geometry for SceneObject {
     }
 }
 
+impl<'a> Geometry for &'a SceneObject {
+    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        (*self).hit(ray, t_min, t_max)
+    }
+
+    fn bounding_box(&self) -> Option<super::Aabb> {
+        (*self).bounding_box()
+    }
+}
+
+pub struct HitList<T> {
+    objects: Vec<T>,
+}
+
+impl<T> Default for HitList<T> {
+    fn default() -> Self {
+        Self {
+            objects: Default::default(),
+        }
+    }
+}
+
+impl<T> Hittable for HitList<T>
+where
+    for<'a> &'a T: Geometry,
+{
+    type Leaf = T;
+    fn hit(&self, ray: &crate::util::Ray, t_min: f64, t_max: f64) -> Option<(&T, HitRecord)> {
+        let mut closest: Option<(&T, HitRecord)> = None;
+
+        for obj in &self.objects {
+            let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
+            if let Some(hit) = obj.hit(ray, t_min, t_closest) {
+                closest = Some((obj, hit))
+            }
+        }
+        closest
+    }
+}
+
 pub struct SceneBuilder {
     skybox: SkyBox,
-    objects: Vec<SceneObject>,
+    objects: HitList<SceneObject>,
     bounded_objects: Vec<SceneObject>,
 }
 
@@ -46,11 +86,11 @@ impl SceneBuilder {
         if obj.bounding_box().is_some() {
             self.bounded_objects.push(obj)
         } else {
-            self.objects.push(obj);
+            self.objects.objects.push(obj);
         }
     }
     pub fn finalize_without_tree(mut self) -> Scene {
-        self.objects.extend(self.bounded_objects);
+        self.objects.objects.extend(self.bounded_objects);
         Scene {
             skybox: self.skybox,
             objects: self.objects,
@@ -69,12 +109,12 @@ impl SceneBuilder {
 
 pub struct Scene {
     pub skybox: SkyBox,
-    objects: Vec<SceneObject>,
+    objects: HitList<SceneObject>,
     tree: BboxTree<SceneObject>,
 }
 
 pub struct WorkspaceScene<'a, 'b> {
-    objects: &'a [SceneObject],
+    objects: &'a HitList<SceneObject>,
     tree: &'a BboxTree<SceneObject>,
     stack: &'b mut Vec<usize>,
 }
@@ -86,20 +126,9 @@ impl<'a, 'b> WorkspaceScene<'a, 'b> {
         t_min: f64,
         t_max: f64,
     ) -> Option<(&SceneObject, HitRecord)> {
-        let mut closest: Option<(&SceneObject, HitRecord)> = None;
-
-        for obj in self.objects {
-            let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
-            if let Some(hit) = obj.geometry.hit(ray, t_min, t_closest) {
-                closest = Some((obj, hit))
-            }
-        }
+        let closest = self.objects.hit(ray, t_min, t_max);
         let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
-
-        let new_closest = self
-            .tree
-            .hit_workspace(&mut self.stack, ray, t_min, t_closest);
-
+        let new_closest = self.tree.hit_workspace(self.stack, ray, t_min, t_closest);
         new_closest.or(closest)
     }
 }
@@ -110,7 +139,7 @@ impl Scene {
             geometry: Box::new(g),
             material: Box::new(m),
         };
-        self.objects.push(obj);
+        self.objects.objects.push(obj);
     }
 
     pub fn workspace_scene<'a, 'b>(
@@ -133,16 +162,8 @@ impl Hittable for Scene {
         t_min: f64,
         t_max: f64,
     ) -> Option<(&SceneObject, HitRecord)> {
-        let mut closest: Option<(&SceneObject, HitRecord)> = None;
-
-        for obj in &self.objects {
-            let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
-            if let Some(hit) = obj.geometry.hit(ray, t_min, t_closest) {
-                closest = Some((obj, hit))
-            }
-        }
+        let closest = self.objects.hit(ray, t_min, t_max);
         let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
-
         let new_closest = self.tree.hit(ray, t_min, t_closest);
 
         new_closest.or(closest)
