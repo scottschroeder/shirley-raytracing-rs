@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use super::{Material, Scatter};
 use crate::raytracer::{
     core::{math::fmin_one, Color, Ray},
@@ -5,6 +6,7 @@ use crate::raytracer::{
 };
 
 #[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Dielectric {
     pub ir: f64,
 }

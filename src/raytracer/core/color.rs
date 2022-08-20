@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::ops;
 
 use image::Rgb;
@@ -6,7 +7,7 @@ use crate::raytracer::core::Vec3;
 
 const COLOR_SCALE: f64 = 255.999;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Color(pub Vec3);
 
 impl Default for Color {
