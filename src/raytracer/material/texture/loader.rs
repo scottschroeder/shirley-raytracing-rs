@@ -9,13 +9,16 @@ use super::{
     solid::ConstantTexture,
     Texture,
 };
-use crate::raytracer::material::perlin::NoiseTexture;
+use crate::raytracer::{
+    core::{Color, Vec3},
+    material::perlin::NoiseTexture,
+};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum TextureLoader {
     Solid(ColorSetting),
     ImagePath(std::path::PathBuf),
-    Perlin,
+    Perlin(ScalarSetting),
     EarthBuiltin,
     Checker {
         size: ScalarSetting,
@@ -25,12 +28,28 @@ pub enum TextureLoader {
 }
 
 impl TextureLoader {
+    pub fn solid(r: f64, g: f64, b: f64) -> TextureLoader {
+        TextureLoader::Solid(ColorSetting(Color(Vec3::new(r, g, b))))
+    }
+    pub fn solid_from_vec(vec: Vec3) -> TextureLoader {
+        TextureLoader::Solid(ColorSetting(Color(vec)))
+    }
+    pub fn checker(size: f64, odd: TextureLoader, even: TextureLoader) -> TextureLoader {
+        TextureLoader::Checker {
+            size: ScalarSetting(size),
+            odd: Box::new(odd),
+            even: Box::new(even),
+        }
+    }
+    pub fn noise(scalar: f64) -> TextureLoader {
+        TextureLoader::Perlin(ScalarSetting(scalar))
+    }
     fn load(&self) -> anyhow::Result<Arc<dyn Texture + Send + Sync>> {
         Ok(match self {
             TextureLoader::Solid(c) => Arc::new(ConstantTexture::from(c.0)),
             TextureLoader::ImagePath(p) => Arc::new(ImageTexture::load_from_filename(p)?),
             TextureLoader::EarthBuiltin => Arc::new(earth_builtin()),
-            TextureLoader::Perlin => Arc::new(NoiseTexture::default()),
+            TextureLoader::Perlin(scalar) => Arc::new(NoiseTexture::scale(scalar.0)),
             TextureLoader::Checker { size, odd, even } => {
                 let odd = odd.load()?;
                 let even = even.load()?;
@@ -91,6 +110,7 @@ pub struct TextureId {
 //     }
 // }
 
+#[derive(Default)]
 pub struct TextureManager {
     inner: HashMap<TextureLoader, Arc<dyn Texture + Send + Sync>>,
 }

@@ -11,7 +11,7 @@ pub struct Lambertian<T> {
     pub albedo: T,
 }
 
-impl<T: Texture> Lambertian<T> {
+impl<T> Lambertian<T> {
     pub fn new(texture: T) -> Lambertian<T> {
         Lambertian { albedo: texture }
     }

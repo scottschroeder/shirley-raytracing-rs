@@ -11,7 +11,7 @@ pub struct DiffuseLight<T> {
     pub albedo: T,
 }
 
-impl<T: Texture> DiffuseLight<T> {
+impl<T> DiffuseLight<T> {
     pub fn new(texture: T) -> DiffuseLight<T> {
         DiffuseLight { albedo: texture }
     }
@@ -32,7 +32,7 @@ pub struct FairyLight<T> {
     pub albedo: T,
 }
 
-impl<T: Texture> FairyLight<T> {
+impl<T> FairyLight<T> {
     pub fn new(texture: T) -> FairyLight<T> {
         FairyLight { albedo: texture }
     }

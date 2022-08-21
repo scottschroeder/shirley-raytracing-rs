@@ -9,11 +9,28 @@ pub trait Texture: std::fmt::Debug {
     fn value(&self, u: f64, v: f64, p: &Point) -> Color;
 }
 
+// impl<S> Texture for std::sync::Arc<S>
+// where
+//     S: Texture + std::fmt::Debug,
+// {
+//     fn value(&self, u: f64, v: f64, p: &Point) -> Color {
+//         self.as_ref().value(u, v, p)
+//     }
+// }
 // impl<T: AsRef<dyn Texture> + std::fmt::Debug> Texture for T {
 //     fn value(&self, u: f64, v: f64, p: &Point) -> Color {
 //         self.as_ref().value(u, v, p)
 //     }
 // }
+//
+impl<T: Texture> Texture for std::sync::Arc<T>
+where
+    T: std::fmt::Debug + ?Sized,
+{
+    fn value(&self, u: f64, v: f64, p: &Point) -> Color {
+        self.as_ref().value(u, v, p)
+    }
+}
 
 mod settings {
     use std::hash::Hash;

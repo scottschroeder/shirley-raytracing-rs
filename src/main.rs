@@ -51,7 +51,8 @@ use crate::{
             lighting::{DiffuseLight, FairyLight},
             metal::Metal,
             perlin::NoiseTexture,
-            texture::{checker::CheckerTexture, solid::ConstantTexture},
+            texture::{checker::CheckerTexture, loader::TextureLoader, solid::ConstantTexture},
+            Material,
         },
         scene::{Scene, SceneBuilder},
         skybox::SkyBox,
@@ -129,7 +130,7 @@ fn run_test(_args: &argparse::Test) -> Result<()> {
     Ok(())
 }
 fn render_random(args: &argparse::RenderRandom) -> Result<()> {
-    let scene = random_scene(args.night);
+    let scene = random_scene(args.night)?;
     // 1170 x 2532
     // let width = args.config.width;
     // let mut camera = camera::CameraBuilder::default();
@@ -152,13 +153,13 @@ fn render_random(args: &argparse::RenderRandom) -> Result<()> {
 }
 
 fn render_demo(args: &argparse::RenderDemo) -> Result<()> {
-    let scene = create_scene();
+    let scene = create_scene()?;
     let (camera, pos) = default_camera(&args.config)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_perlin(args: &argparse::RenderPerlin) -> Result<()> {
-    let scene = create_perlin_demo();
+    let scene = create_perlin_demo()?;
     let (camera, pos) = default_camera(&args.config)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
@@ -170,13 +171,13 @@ fn render_earth(args: &argparse::RenderEarth) -> Result<()> {
 }
 
 fn render_boxlight(args: &argparse::RenderBoxLight) -> Result<()> {
-    let scene = create_box_light();
+    let scene = create_box_light()?;
     let (camera, pos) = default_camera(&args.config)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
-    let scene = create_cornell_box();
+    let scene = create_cornell_box()?;
 
     let width = args.config.width;
     let mut camera = CameraBuilder::default();
@@ -309,18 +310,11 @@ fn render_scanline(
     }
 }
 
-fn random_scene(night: bool) -> Scene {
-    use rand::prelude::*;
-    let mut scene = SceneBuilder::default();
-    if night {
-        scene.set_skybox(SkyBox::None);
-    }
-
-    // let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.5, 0.5, 0.5))));
-    let ground_texture = CheckerTexture::new(
+fn create_ground_checker(scene: &mut SceneBuilder) {
+    let ground_texture = TextureLoader::checker(
         10.0,
-        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
-        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+        TextureLoader::solid(0.2, 0.3, 0.1),
+        TextureLoader::solid(0.9, 0.9, 0.9),
     );
     let mat_ground = Lambertian::new(ground_texture);
     scene.add(
@@ -330,6 +324,15 @@ fn random_scene(night: bool) -> Scene {
         },
         mat_ground,
     );
+}
+
+fn random_scene(night: bool) -> anyhow::Result<Scene> {
+    use rand::prelude::*;
+    let mut scene = SceneBuilder::default();
+    if night {
+        scene.set_skybox(SkyBox::None);
+    }
+    create_ground_checker(&mut scene);
 
     scene.add(
         Sphere {
@@ -345,9 +348,9 @@ fn random_scene(night: bool) -> Scene {
                 center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
             },
-            FairyLight::new(ConstantTexture::from(Color(
+            FairyLight::new(TextureLoader::solid_from_vec(
                 Vec3::new(0.7, 0.6, 0.5).scale(1.3),
-            ))),
+            )),
         );
     } else {
         scene.add(
@@ -355,7 +358,7 @@ fn random_scene(night: bool) -> Scene {
                 center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
             },
-            Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.4, 0.2, 0.1)))),
+            Lambertian::new(TextureLoader::solid(0.4, 0.2, 0.1)),
         );
     }
     scene.add(
@@ -411,12 +414,18 @@ fn random_scene(night: bool) -> Scene {
             let sphere = Sphere { center, radius };
             match item {
                 BallTypes::Color => {
-                    let albedo = Color(Vec3::random() * Vec3::random());
-                    scene.add(sphere, Lambertian::new(ConstantTexture::from(albedo)));
+                    let albedo = Vec3::random() * Vec3::random();
+                    scene.add(
+                        sphere,
+                        Lambertian::new(TextureLoader::solid_from_vec(albedo)),
+                    );
                 }
                 BallTypes::SphereLight => {
-                    let albedo = Color((Vec3::random() * Vec3::random()).scale(5.0));
-                    scene.add(sphere, FairyLight::new(ConstantTexture::from(albedo)));
+                    let albedo = (Vec3::random() * Vec3::random()).scale(5.0);
+                    scene.add(
+                        sphere,
+                        FairyLight::new(TextureLoader::solid_from_vec(albedo)),
+                    );
                 }
                 BallTypes::Glass => {
                     // glass
@@ -430,17 +439,17 @@ fn random_scene(night: bool) -> Scene {
                 }
                 BallTypes::Checker => {
                     // checker
-                    let checker_color = Color(Vec3::random() * Vec3::random());
-                    let checker_texture = CheckerTexture::new(
+                    let checker_color = Vec3::random() * Vec3::random();
+                    let checker_texture = TextureLoader::checker(
                         8.0 / radius,
-                        ConstantTexture::from(checker_color),
-                        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
+                        TextureLoader::solid_from_vec(checker_color),
+                        TextureLoader::solid(0.9, 0.9, 0.9),
                     );
                     scene.add(sphere, Lambertian::new(checker_texture));
                 }
                 BallTypes::Marble => {
                     // marble
-                    let mat = Lambertian::new(NoiseTexture::scale(16.0));
+                    let mat = Lambertian::new(TextureLoader::noise(16.0));
                     scene.add(sphere, mat);
                 }
             }
@@ -450,11 +459,11 @@ fn random_scene(night: bool) -> Scene {
     scene.finalize()
 }
 
-fn create_scene() -> Scene {
+fn create_scene() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
 
-    let mat_ground = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.8, 0.8, 0.0))));
-    let mat_center = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.1, 0.2, 0.5))));
+    let mat_ground = Lambertian::new(TextureLoader::solid(0.8, 0.8, 0.0));
+    let mat_center = Lambertian::new(TextureLoader::solid(0.1, 0.2, 0.5));
     let mat_left = Dielectric { ir: 1.5 };
     let mat_right = Metal::new(Color(Vec3::new(0.8, 0.6, 0.2)), Some(0.0));
 
@@ -504,14 +513,14 @@ fn create_scene() -> Scene {
     scene.finalize()
 }
 
-fn create_cornell_box() -> Scene {
+fn create_cornell_box() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
     scene.set_skybox(SkyBox::None);
 
-    let red = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.65, 0.05, 0.05))));
-    let white = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.73, 0.73, 0.73))));
-    let green = Lambertian::new(ConstantTexture::from(Color(Vec3::new(0.12, 0.45, 0.15))));
-    let light = FairyLight::new(ConstantTexture::from(Color(Vec3::new(15.0, 15.0, 15.0))));
+    let red = Lambertian::new(TextureLoader::solid(0.65, 0.05, 0.05));
+    let white = Lambertian::new(TextureLoader::solid(0.73, 0.73, 0.73));
+    let green = Lambertian::new(TextureLoader::solid(0.12, 0.45, 0.15));
+    let light = FairyLight::new(TextureLoader::solid(15.0, 15.0, 15.0));
 
     let box_size = 555.0;
     scene.add(yz_rect(0.0, box_size, 0.0, box_size, box_size), green);
@@ -545,26 +554,14 @@ fn create_cornell_box() -> Scene {
 
     scene.finalize()
 }
-fn create_box_light() -> Scene {
+fn create_box_light() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
     scene.set_skybox(SkyBox::None);
 
-    let mat = Lambertian::new(NoiseTexture::scale(4.0));
+    create_ground_checker(&mut scene);
 
-    let ground_texture = CheckerTexture::new(
-        10.0,
-        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
-        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
-    );
-    let mat_ground = Lambertian::new(ground_texture);
+    let mat = Lambertian::new(TextureLoader::noise(4.0));
 
-    scene.add(
-        Sphere {
-            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
-            radius: 1000.0,
-        },
-        mat_ground,
-    );
     scene.add(
         Sphere {
             center: Point(Vec3::new(0.0, 2.0, -0.0)),
@@ -587,31 +584,16 @@ fn create_box_light() -> Scene {
         // xy_rect(3.0, 5.0, 1.0, 3.0, -2.0),
         // yz_rect(3.0, 5.0, 1.0, 3.0, -2.0),
         xz_rect(3.0, 5.0, 1.0, 3.0, 3.5),
-        DiffuseLight::new(ConstantTexture::from(Color(Vec3::new(4.0, 4.0, 4.0)))),
+        DiffuseLight::new(TextureLoader::solid(4.0, 4.0, 4.0)),
     );
     scene.finalize()
 }
-fn create_perlin_demo() -> Scene {
+fn create_perlin_demo() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
 
-    let mat = Lambertian::new(NoiseTexture::scale(4.0));
+    create_ground_checker(&mut scene);
+    let mat = Lambertian::new(TextureLoader::noise(4.0));
 
-    let ground_texture = CheckerTexture::new(
-        10.0,
-        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
-        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
-    );
-    let mat_ground = Lambertian::new(ground_texture);
-
-    log::debug!("{:?}", mat);
-
-    scene.add(
-        Sphere {
-            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
-            radius: 1000.0,
-        },
-        mat_ground,
-    );
     scene.add(
         Sphere {
             center: Point(Vec3::new(0.0, 2.0, -0.0)),
@@ -625,31 +607,15 @@ fn create_perlin_demo() -> Scene {
 fn create_earth_demo() -> anyhow::Result<Scene> {
     let mut scene = SceneBuilder::default();
 
-    let earth_texture = earth_builtin();
-    let mat = Lambertian::new(earth_texture);
-
-    let ground_texture = CheckerTexture::new(
-        10.0,
-        ConstantTexture::from(Color(Vec3::new(0.2, 0.3, 0.1))),
-        ConstantTexture::from(Color(Vec3::new(0.9, 0.9, 0.9))),
-    );
-    let mat_ground = Lambertian::new(ground_texture);
-
-    scene.add(
-        Sphere {
-            center: Point(Vec3::new(0.0, -1000.0, -0.0)),
-            radius: 1000.0,
-        },
-        mat_ground,
-    );
+    create_ground_checker(&mut scene);
     scene.add(
         Sphere {
             center: Point(Vec3::new(4.0, 1.0, 1.0)),
             radius: 1.0,
         },
-        mat,
+        Lambertian::new(TextureLoader::EarthBuiltin),
     );
-    Ok(scene.finalize())
+    scene.finalize()
 }
 
 pub fn setup_logger(level: u8) {

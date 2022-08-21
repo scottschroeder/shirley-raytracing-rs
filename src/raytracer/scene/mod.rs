@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::{
     bvh::{aabb::Aabb, bbox_tree::BboxTree},
     core::Ray,
@@ -5,13 +7,23 @@ use super::{
         hittable::{Geometry, HitRecord, Hittable},
         object::GeometricObject,
     },
-    material::Material,
+    material::{
+        material_type::{MaterialType, SceneMaterial},
+        texture::loader::{TextureLoader, TextureManager},
+        Material,
+    },
     skybox::SkyBox,
 };
 
 pub struct SceneObject {
     geometry: GeometricObject,
-    pub material: Box<dyn Material + Sync>,
+    pub material: SceneMaterial,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SceneLoadObject {
+    geometry: GeometricObject,
+    material: MaterialType<TextureLoader>,
 }
 
 impl Geometry for SceneObject {
@@ -64,10 +76,10 @@ where
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SceneBuilder {
     skybox: SkyBox,
-    objects: HitList<SceneObject>,
-    bounded_objects: Vec<SceneObject>,
+    objects: Vec<SceneLoadObject>,
 }
 
 impl Default for SceneBuilder {
@@ -75,7 +87,6 @@ impl Default for SceneBuilder {
         Self {
             skybox: SkyBox::Above,
             objects: Default::default(),
-            bounded_objects: Default::default(),
         }
     }
 }
@@ -86,32 +97,43 @@ impl SceneBuilder {
         self
     }
 
-    pub fn add<G: Into<GeometricObject>, M: Material + 'static + Sync>(&mut self, g: G, m: M) {
-        let obj = SceneObject {
+    pub fn add<G: Into<GeometricObject>, M: Into<MaterialType<TextureLoader>>>(
+        &mut self,
+        g: G,
+        m: M,
+    ) {
+        let obj = SceneLoadObject {
             geometry: g.into(),
-            material: Box::new(m),
+            material: m.into(),
         };
-        if obj.bounding_box().is_some() {
-            self.bounded_objects.push(obj)
-        } else {
-            self.objects.objects.push(obj);
-        }
+        self.objects.push(obj);
     }
-    pub fn finalize_without_tree(mut self) -> Scene {
-        self.objects.objects.extend(self.bounded_objects);
-        Scene {
-            skybox: self.skybox,
-            objects: self.objects,
-            tree: BboxTree::default(),
+    pub fn finalize(self) -> anyhow::Result<Scene> {
+        let mut bounded_objects = Vec::new();
+        let mut unbounded_objects = HitList::default();
+
+        let mut texture_manager = TextureManager::default();
+
+        for load_obj in self.objects {
+            let loaded_material = load_obj.material.load_texture(&mut texture_manager)?;
+            let scene_obj = SceneObject {
+                geometry: load_obj.geometry,
+                material: loaded_material,
+            };
+
+            if scene_obj.bounding_box().is_some() {
+                bounded_objects.push(scene_obj);
+            } else {
+                unbounded_objects.objects.push(scene_obj);
+            }
         }
-    }
-    pub fn finalize(self) -> Scene {
-        let tree = BboxTree::new(self.bounded_objects);
-        Scene {
+
+        let tree = BboxTree::new(bounded_objects);
+        Ok(Scene {
             skybox: self.skybox,
-            objects: self.objects,
+            objects: unbounded_objects,
             tree,
-        }
+        })
     }
 }
 
