@@ -1,13 +1,15 @@
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
+
+use serde::{Deserialize, Serialize};
 
 use super::{
     checker::CheckerTexture,
     image_texture::{earth_builtin, ImageTexture},
+    settings::{ColorSetting, ScalarSetting},
     solid::ConstantTexture,
-    ColorSetting, ScalarSetting, Texture,
+    Texture,
 };
-use crate::raytracer::{core::Color, material::perlin::NoiseTexture};
+use crate::raytracer::material::perlin::NoiseTexture;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum TextureLoader {
@@ -23,7 +25,7 @@ pub enum TextureLoader {
 }
 
 impl TextureLoader {
-    fn load(self) -> anyhow::Result<Arc<dyn Texture + Send + Sync>> {
+    fn load(&self) -> anyhow::Result<Arc<dyn Texture + Send + Sync>> {
         Ok(match self {
             TextureLoader::Solid(c) => Arc::new(ConstantTexture::from(c.0)),
             TextureLoader::ImagePath(p) => Arc::new(ImageTexture::load_from_filename(p)?),
@@ -36,6 +38,22 @@ impl TextureLoader {
                 Arc::new(CheckerTexture { size, odd, even })
             }
         })
+    }
+}
+
+pub trait LoadableTexture {
+    fn load_texture(
+        self,
+        manager: &mut TextureManager,
+    ) -> anyhow::Result<Arc<dyn Texture + Send + Sync>>;
+}
+
+impl LoadableTexture for TextureLoader {
+    fn load_texture(
+        self,
+        manager: &mut TextureManager,
+    ) -> anyhow::Result<Arc<dyn Texture + Send + Sync>> {
+        manager.load(self)
     }
 }
 
@@ -78,7 +96,17 @@ pub struct TextureManager {
 }
 
 impl TextureManager {
-    // pub fn resolve(&self, id: TextureId) -> &dyn Texture {
-    //     self.inner[id.inner].as_ref()
-    // }
+    pub fn load(
+        &mut self,
+        loader: TextureLoader,
+    ) -> anyhow::Result<Arc<dyn Texture + Send + Sync>> {
+        match self.inner.entry(loader) {
+            std::collections::hash_map::Entry::Occupied(o) => Ok(o.get().clone()),
+            std::collections::hash_map::Entry::Vacant(v) => {
+                let t = v.key().load()?;
+                v.insert(t.clone());
+                Ok(t)
+            }
+        }
+    }
 }

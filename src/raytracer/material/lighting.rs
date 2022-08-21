@@ -1,22 +1,23 @@
+use serde::{Deserialize, Serialize};
+
 use super::{texture::Texture, Material, Scatter};
 use crate::raytracer::{
     core::{math::random_unit_vector, Color, Ray},
     geometry::hittable::HitRecord,
 };
 
-pub struct DiffuseLight {
-    pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffuseLight<T> {
+    pub albedo: T,
 }
 
-impl DiffuseLight {
-    pub fn new<T: Texture + Send + Sync + 'static>(texture: T) -> DiffuseLight {
-        DiffuseLight {
-            albedo: std::sync::Arc::new(texture),
-        }
+impl<T: Texture> DiffuseLight<T> {
+    pub fn new(texture: T) -> DiffuseLight<T> {
+        DiffuseLight { albedo: texture }
     }
 }
 
-impl Material for DiffuseLight {
+impl<T: Texture> Material for DiffuseLight<T> {
     fn scatter(&self, _ray: &Ray, _record: &HitRecord) -> Option<Scatter> {
         None
     }
@@ -24,24 +25,20 @@ impl Material for DiffuseLight {
     fn emitted(&self, _ray: &Ray, record: &HitRecord) -> Option<Color> {
         Some(self.albedo.value(record.u, record.v, &record.point))
     }
-
-    // fn emitted(&self, u: f64, v: f64, point: &crate::util::Point) -> Option<crate::util::Color> {
-    // }
 }
 
-pub struct FairyLight {
-    pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FairyLight<T> {
+    pub albedo: T,
 }
 
-impl FairyLight {
-    pub fn new<T: Texture + Send + Sync + 'static>(texture: T) -> FairyLight {
-        FairyLight {
-            albedo: std::sync::Arc::new(texture),
-        }
+impl<T: Texture> FairyLight<T> {
+    pub fn new(texture: T) -> FairyLight<T> {
+        FairyLight { albedo: texture }
     }
 }
 
-impl Material for FairyLight {
+impl<T: Texture> Material for FairyLight<T> {
     fn scatter(&self, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
         let mut scatter = record.normal + random_unit_vector();
         if scatter.near_zero() {

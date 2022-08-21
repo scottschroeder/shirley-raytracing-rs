@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use super::Texture;
 use crate::raytracer::core::{Color, Point};
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CheckerTexture {

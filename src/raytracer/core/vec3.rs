@@ -1,4 +1,4 @@
-use std::{ops, hash::Hash};
+use std::{hash::Hash, ops};
 
 use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};

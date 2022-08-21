@@ -1,23 +1,23 @@
+use serde::{Deserialize, Serialize};
+
 use super::{texture::Texture, Material, Scatter};
 use crate::raytracer::{
     core::{math::random_unit_vector, Ray},
     geometry::hittable::HitRecord,
 };
 
-#[derive(Debug, Clone)]
-pub struct Lambertian {
-    pub albedo: std::sync::Arc<dyn Texture + Send + Sync>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Lambertian<T> {
+    pub albedo: T,
 }
 
-impl Lambertian {
-    pub fn new<T: Texture + Send + Sync + 'static>(texture: T) -> Lambertian {
-        Lambertian {
-            albedo: std::sync::Arc::new(texture),
-        }
+impl<T: Texture> Lambertian<T> {
+    pub fn new(texture: T) -> Lambertian<T> {
+        Lambertian { albedo: texture }
     }
 }
 
-impl Material for Lambertian {
+impl<T: Texture> Material for Lambertian<T> {
     fn scatter(&self, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
         let mut scatter = record.normal + random_unit_vector();
         if scatter.near_zero() {
