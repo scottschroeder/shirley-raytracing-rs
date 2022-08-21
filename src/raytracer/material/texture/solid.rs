@@ -3,7 +3,7 @@ use crate::raytracer::{
     material::texture::Texture,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstantTexture {
     color: Color,
 }

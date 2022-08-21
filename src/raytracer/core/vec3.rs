@@ -1,4 +1,4 @@
-use std::ops;
+use std::{ops, hash::Hash};
 
 use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ impl Dimm {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
 }

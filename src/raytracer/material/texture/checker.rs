@@ -1,11 +1,12 @@
 use super::Texture;
 use crate::raytracer::core::{Color, Point};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CheckerTexture {
-    size: f64,
-    odd: Box<dyn Texture + Send + Sync>,
-    even: Box<dyn Texture + Send + Sync>,
+    pub size: f64,
+    pub odd: Arc<dyn Texture + Send + Sync>,
+    pub even: Arc<dyn Texture + Send + Sync>,
 }
 
 impl CheckerTexture {
@@ -16,8 +17,8 @@ impl CheckerTexture {
     ) -> CheckerTexture {
         CheckerTexture {
             size,
-            odd: Box::new(odd),
-            even: Box::new(even),
+            odd: Arc::new(odd),
+            even: Arc::new(even),
         }
     }
 }

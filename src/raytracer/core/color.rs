@@ -7,7 +7,7 @@ use crate::raytracer::core::Vec3;
 
 const COLOR_SCALE: f64 = 255.999;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Color(pub Vec3);
 
 impl Default for Color {
