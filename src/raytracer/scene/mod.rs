@@ -10,7 +10,6 @@ use super::{
     material::{
         material_type::{MaterialType, SceneMaterial},
         texture::loader::{TextureLoader, TextureManager},
-        Material,
     },
     skybox::SkyBox,
 };

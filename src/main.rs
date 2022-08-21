@@ -35,28 +35,24 @@ pub mod image;
 use anyhow::Result;
 use rand::prelude::ThreadRng;
 
-use self::raytracer::material::texture::image_texture::earth_builtin;
-use crate::{
-    argparse::RenderSettings,
-    raytracer::{
-        camera::{Camera, CameraBuilder, CameraPosition},
-        core::{math::random_real, Color, Point, Ray, Vec3},
-        geometry::{
-            rect::{xy_rect, xz_rect, yz_rect, RectBox},
-            sphere::Sphere,
-        },
-        material::{
-            dielectric::Dielectric,
-            lambertian::Lambertian,
-            lighting::{DiffuseLight, FairyLight},
-            metal::Metal,
-            perlin::NoiseTexture,
-            texture::{checker::CheckerTexture, loader::TextureLoader, solid::ConstantTexture},
-            Material,
-        },
-        scene::{Scene, SceneBuilder},
-        skybox::SkyBox,
+use self::argparse::CameraSettings;
+use crate::raytracer::{
+    camera::{Camera, CameraBuilder, CameraPosition},
+    core::{math::random_real, Color, Point, Ray, Vec3},
+    geometry::{
+        rect::{xy_rect, xz_rect, yz_rect, RectBox},
+        sphere::Sphere,
     },
+    material::{
+        dielectric::Dielectric,
+        lambertian::Lambertian,
+        lighting::{DiffuseLight, FairyLight},
+        metal::Metal,
+        texture::loader::TextureLoader,
+        Material,
+    },
+    scene::{Scene, SceneBuilder},
+    skybox::SkyBox,
 };
 
 const DEFAULT_WIDTH: &str = "640";
@@ -78,6 +74,7 @@ fn main() -> Result<()> {
             argparse::Render::Earth(args) => render_earth(args),
             argparse::Render::BoxLight(args) => render_boxlight(args),
             argparse::Render::Cornell(args) => render_cornell_box(args),
+            argparse::Render::Saved(args) => render_saved(args),
         },
         argparse::SubCommand::Test(sub) => run_test(sub),
     }
@@ -129,8 +126,23 @@ fn run_test(_args: &argparse::Test) -> Result<()> {
     log::error!("there is nothing to test!");
     Ok(())
 }
+fn render_saved(args: &argparse::RenderSaved) -> Result<()> {
+    let f = std::fs::File::open(args.scene_input.as_str())?;
+    let scene: SceneBuilder = serde_json::from_reader(f)?;
+    let scene = scene.finalize()?;
+    let (camera, pos) = default_camera(&args.camera)?;
+    render_scene(&args.config, &scene, &camera, &pos)
+}
+
 fn render_random(args: &argparse::RenderRandom) -> Result<()> {
-    let scene = random_scene(args.night)?;
+    let scene = random_scene(args.night);
+
+    if let Some(save) = args.scene_output.as_ref() {
+        let mut f = std::fs::File::create(save)?;
+        serde_json::to_writer_pretty(&mut f, &scene)?;
+    }
+
+    let scene = scene.finalize()?;
     // 1170 x 2532
     // let width = args.config.width;
     // let mut camera = camera::CameraBuilder::default();
@@ -148,38 +160,38 @@ fn render_random(args: &argparse::RenderRandom) -> Result<()> {
     //     Vec3::new(0.0, 1.0, 0.0),
     // );
     // pos.focus_length = 10.0;
-    let (camera, pos) = default_camera(&args.config)?;
+    let (camera, pos) = default_camera(&args.camera)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_demo(args: &argparse::RenderDemo) -> Result<()> {
     let scene = create_scene()?;
-    let (camera, pos) = default_camera(&args.config)?;
+    let (camera, pos) = default_camera(&args.camera)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_perlin(args: &argparse::RenderPerlin) -> Result<()> {
     let scene = create_perlin_demo()?;
-    let (camera, pos) = default_camera(&args.config)?;
+    let (camera, pos) = default_camera(&args.camera)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_earth(args: &argparse::RenderEarth) -> Result<()> {
     let scene = create_earth_demo()?;
-    let (camera, pos) = default_camera(&args.config)?;
+    let (camera, pos) = default_camera(&args.camera)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_boxlight(args: &argparse::RenderBoxLight) -> Result<()> {
     let scene = create_box_light()?;
-    let (camera, pos) = default_camera(&args.config)?;
+    let (camera, pos) = default_camera(&args.camera)?;
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
 fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
     let scene = create_cornell_box()?;
 
-    let width = args.config.width;
+    let width = args.camera.width;
     let mut camera = CameraBuilder::default();
     camera
         .vfov(40.0)
@@ -199,15 +211,14 @@ fn render_cornell_box(args: &argparse::RenderCornellBox) -> Result<()> {
     render_scene(&args.config, &scene, &camera, &pos)
 }
 
-fn default_camera(args: &RenderSettings) -> Result<(Camera, CameraPosition)> {
-    let width = args.width;
+fn default_camera(args: &CameraSettings) -> Result<(Camera, CameraPosition)> {
     let mut camera = CameraBuilder::default();
     camera
-        .vfov(20.0)
-        .focal_length(1.0)
-        .aperture(0.01)
-        .width(width)
-        .aspect_ratio((3, 2));
+        .vfov(args.camera_fov)
+        .focal_length(args.camera_focal_length)
+        .aperture(args.camera_aperture)
+        .width(args.width)
+        .aspect_ratio(args.camera_aspect_ratio.ratio());
 
     let camera = camera.build()?;
     let mut pos = CameraPosition::look_at(
@@ -326,7 +337,7 @@ fn create_ground_checker(scene: &mut SceneBuilder) {
     );
 }
 
-fn random_scene(night: bool) -> anyhow::Result<Scene> {
+fn random_scene(night: bool) -> SceneBuilder {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
     if night {
@@ -456,7 +467,7 @@ fn random_scene(night: bool) -> anyhow::Result<Scene> {
         }
     }
 
-    scene.finalize()
+    scene
 }
 
 fn create_scene() -> anyhow::Result<Scene> {

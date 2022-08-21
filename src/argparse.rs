@@ -2,6 +2,10 @@ use clap::Parser;
 
 use super::{DEFAULT_OUTPUT, DEFAULT_REFLECT_DEPTH, DEFAULT_SAMPLES, DEFAULT_WIDTH};
 
+const DEFAULT_CAMERA_VFOV: &str = "20.0";
+const DEFAULT_CAMERA_FOCAL_LENGTH: &str = "1.0";
+const DEFAULT_CAMERA_APERTURE: &str = "0.001";
+
 pub fn get_args() -> CliOpts {
     CliOpts::parse()
 }
@@ -26,6 +30,7 @@ pub enum SubCommand {
 #[derive(Parser, Debug)]
 pub enum Render {
     Random(RenderRandom),
+    Saved(RenderSaved),
     Demo(RenderDemo),
     Perlin(RenderPerlin),
     Earth(RenderEarth),
@@ -37,36 +42,62 @@ pub enum Render {
 pub struct RenderCornellBox {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
 }
 #[derive(Parser, Debug)]
 pub struct RenderBoxLight {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
+}
+#[derive(Parser, Debug)]
+pub struct RenderSaved {
+    #[clap(flatten)]
+    pub config: RenderSettings,
+
+    #[clap(flatten)]
+    pub camera: CameraSettings,
+
+    /// Input file for scene_data
+    pub scene_input: String,
 }
 #[derive(Parser, Debug)]
 pub struct RenderRandom {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
     /// Render at night time!
     #[clap(long)]
     pub night: bool,
+    /// Output file for scene_data
+    #[clap(long)]
+    pub scene_output: Option<String>,
 }
 #[derive(Parser, Debug)]
 pub struct RenderDemo {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
 }
 
 #[derive(Parser, Debug)]
 pub struct RenderEarth {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
 }
 
 #[derive(Parser, Debug)]
 pub struct RenderPerlin {
     #[clap(flatten)]
     pub config: RenderSettings,
+    #[clap(flatten)]
+    pub camera: CameraSettings,
 }
 
 #[derive(Parser, Debug)]
@@ -74,10 +105,6 @@ pub struct RenderSettings {
     /// Output file for image
     #[clap(short, long, default_value=DEFAULT_OUTPUT)]
     pub output: String,
-
-    /// Set width of image in pixels
-    #[clap(short, long, default_value=DEFAULT_WIDTH)]
-    pub width: usize,
 
     /// Number of iterations to sample each pixel
     #[clap(short, long, default_value=DEFAULT_SAMPLES)]
@@ -90,6 +117,50 @@ pub struct RenderSettings {
     /// Render on a single core
     #[clap(long)]
     pub single_threaded: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct CameraSettings {
+    /// Set width of image in pixels
+    #[clap(short, long, default_value=DEFAULT_WIDTH)]
+    pub width: usize,
+
+    /// Camera Field of View
+    #[clap(long, default_value=DEFAULT_CAMERA_VFOV)]
+    pub camera_fov: f64,
+
+    /// Camera Focal Length
+    #[clap(long, default_value=DEFAULT_CAMERA_FOCAL_LENGTH)]
+    pub camera_focal_length: f64,
+    ///
+    /// Camera Focal Length
+    #[clap(long, default_value=DEFAULT_CAMERA_APERTURE)]
+    pub camera_aperture: f64,
+
+    /// Camera AspectRatio
+    #[clap(long, value_enum, default_value_t=CameraAspectRatio::Std3x2)]
+    pub camera_aspect_ratio: CameraAspectRatio,
+}
+
+#[derive(Debug, clap::ValueEnum, Clone)]
+pub enum CameraAspectRatio {
+    Std3x2,
+    Std16x9,
+    Std16x10,
+    Square,
+    TargetIphone,
+}
+
+impl CameraAspectRatio {
+    pub fn ratio(&self) -> (u32, u32) {
+        match self {
+            CameraAspectRatio::Std3x2 => (3, 2),
+            CameraAspectRatio::Std16x9 => (16, 9),
+            CameraAspectRatio::Std16x10 => (16, 10),
+            CameraAspectRatio::Square => (1, 1),
+            CameraAspectRatio::TargetIphone => (1170, 2532),
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
