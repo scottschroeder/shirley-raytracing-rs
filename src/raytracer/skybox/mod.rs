@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::raytracer::core::{Color, Ray, Vec3};
+use crate::core::{Color, Ray, Vec3};
 
 fn skybox(r: &Ray) -> Color {
     let unit = r.direction.unit();

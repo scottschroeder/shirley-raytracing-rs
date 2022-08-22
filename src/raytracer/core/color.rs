@@ -3,7 +3,7 @@ use std::ops;
 use image::Rgb;
 use serde::{Deserialize, Serialize};
 
-use crate::raytracer::core::Vec3;
+use crate::core::Vec3;
 
 const COLOR_SCALE: f64 = 255.999;
 

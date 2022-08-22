@@ -1,4 +1,4 @@
-use crate::raytracer::core::{Color, Point};
+use crate::core::{Color, Point};
 
 pub mod checker;
 pub mod image_texture;
@@ -37,7 +37,7 @@ mod settings {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::raytracer::core::Color;
+    use crate::core::Color;
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct ColorSetting(pub Color);

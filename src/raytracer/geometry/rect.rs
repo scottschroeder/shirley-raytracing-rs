@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::hittable::{Geometry, HitRecord};
-use crate::raytracer::{
+use crate::{
     bvh::aabb::Aabb,
     core::{Point, Ray, Vec3},
 };

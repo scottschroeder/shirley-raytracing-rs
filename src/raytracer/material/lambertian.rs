@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{texture::Texture, Material, Scatter};
-use crate::raytracer::{
+use crate::{
     core::{math::random_unit_vector, Ray},
     geometry::hittable::HitRecord,
 };

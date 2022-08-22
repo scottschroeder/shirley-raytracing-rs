@@ -49,8 +49,8 @@ impl<T: LoadableTexture> MaterialType<T> {
 impl<T: Texture> Material for MaterialType<T> {
     fn scatter(
         &self,
-        ray: &crate::raytracer::core::Ray,
-        record: &crate::raytracer::geometry::hittable::HitRecord,
+        ray: &crate::core::Ray,
+        record: &crate::geometry::hittable::HitRecord,
     ) -> Option<super::Scatter> {
         match self {
             MaterialType::Metal(m) => m.scatter(ray, record),
@@ -63,9 +63,9 @@ impl<T: Texture> Material for MaterialType<T> {
 
     fn emitted(
         &self,
-        ray: &crate::raytracer::core::Ray,
-        record: &crate::raytracer::geometry::hittable::HitRecord,
-    ) -> Option<crate::raytracer::core::Color> {
+        ray: &crate::core::Ray,
+        record: &crate::geometry::hittable::HitRecord,
+    ) -> Option<crate::core::Color> {
         match self {
             MaterialType::Metal(m) => m.emitted(ray, record),
             MaterialType::Dielectric(m) => m.emitted(ray, record),

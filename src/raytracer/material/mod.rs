@@ -7,7 +7,7 @@ pub mod perlin;
 pub mod texture;
 
 use super::geometry::hittable::HitRecord;
-use crate::raytracer::core::{Color, Ray};
+use crate::core::{Color, Ray};
 
 #[derive(Debug, Clone)]
 pub struct Scatter {

@@ -1,48 +1,14 @@
-pub mod raytracer {
-    pub mod core {
-        mod color;
-        pub mod fp;
-        pub mod math;
-        mod vec3;
-
-        pub use color::Color;
-        pub use vec3::{Point, Ray, Vec3, EACH_DIMM};
-    }
-
-    pub mod camera;
-    pub mod scene;
-
-    pub mod skybox;
-
-    pub mod geometry {
-        pub mod hittable;
-        pub mod object;
-        pub mod rect;
-        pub mod sphere;
-    }
-
-    pub mod bvh {
-        pub mod aabb;
-        pub mod bbox_tree;
-    }
-
-    pub mod material;
-}
-
 mod argparse;
-pub mod image;
-
 use anyhow::Result;
 use rand::prelude::ThreadRng;
-
-use self::argparse::CameraSettings;
-use crate::raytracer::{
+use raytracer::{
     camera::{Camera, CameraBuilder, CameraPosition},
     core::{math::random_real, Color, Point, Ray, Vec3},
     geometry::{
         rect::{xy_rect, xz_rect, yz_rect, RectBox},
         sphere::Sphere,
     },
+    image,
     material::{
         dielectric::Dielectric,
         lambertian::Lambertian,
@@ -55,10 +21,7 @@ use crate::raytracer::{
     skybox::SkyBox,
 };
 
-const DEFAULT_WIDTH: &str = "640";
-const DEFAULT_SAMPLES: &str = "100";
-const DEFAULT_REFLECT_DEPTH: &str = "50";
-const DEFAULT_OUTPUT: &str = "out.png";
+use self::argparse::CameraSettings;
 
 fn main() -> Result<()> {
     color_backtrace::install();
@@ -328,12 +291,44 @@ fn create_ground_checker(scene: &mut SceneBuilder) {
         TextureLoader::solid(0.9, 0.9, 0.9),
     );
     let mat_ground = Lambertian::new(ground_texture);
+    let rect = 30.0;
+    scene.add(xz_rect(-rect, rect, -rect, rect, -0.0001), mat_ground);
+    // scene.add(
+    //     Sphere {
+    //         center: Point(Vec3::new(0.0, -1000.0, 0.0)),
+    //         radius: 1000.0,
+    //     },
+    //     mat_ground,
+    // );
+}
+
+fn create_fancy_ground(scene: &mut SceneBuilder) {
+    const RECT_SIZE: f64 = 30.0;
+    const TOP_COAT_DEPTH: f64 = 0.01;
+    const LAYER_SEP: f64 = 0.01;
+
+    let lower_surface = Lambertian::new(TextureLoader::checker(
+        3.0,
+        TextureLoader::noise(1.0),
+        TextureLoader::solid(0.1, 0.1, 0.1),
+    ));
+
     scene.add(
-        Sphere {
-            center: Point(Vec3::new(0.0, -1000.0, 0.0)),
-            radius: 1000.0,
-        },
-        mat_ground,
+        xz_rect(
+            -RECT_SIZE,
+            RECT_SIZE,
+            -RECT_SIZE,
+            RECT_SIZE,
+            -TOP_COAT_DEPTH - LAYER_SEP,
+        ),
+        lower_surface,
+    );
+    scene.add(
+        RectBox::new(
+            Point(Vec3::new(-RECT_SIZE, -TOP_COAT_DEPTH, -RECT_SIZE)),
+            Point(Vec3::new(RECT_SIZE, 0.0, RECT_SIZE)),
+        ),
+        Dielectric { ir: 1.0 },
     );
 }
 
@@ -343,40 +338,59 @@ fn random_scene(night: bool) -> SceneBuilder {
     if night {
         scene.set_skybox(SkyBox::None);
     }
-    create_ground_checker(&mut scene);
+    if night {
+        create_ground_checker(&mut scene);
+    } else {
+        create_fancy_ground(&mut scene);
+    }
+
+    let mut balls: Vec<Sphere> = Vec::new();
+
+    let mut check_fit_ball = |mut s: Sphere| {
+        let orig = s.radius;
+        for other in &balls {
+            let dist = (other.center.0 - s.center.0).length();
+            let rem = dist - other.radius;
+            s.radius = std::cmp::min_by(s.radius, rem, |a, b| a.total_cmp(b));
+        }
+        let delta = orig - s.radius;
+        s.center = Point(s.center.0 - Vec3::new(0.0, delta, 0.0));
+        balls.push(s.clone());
+        s
+    };
 
     scene.add(
-        Sphere {
+        check_fit_ball(Sphere {
             center: Point(Vec3::new(0.0, 1.0, 0.0)),
             radius: 1.0,
-        },
+        }),
         Dielectric { ir: 1.5 },
     );
 
     if night {
         scene.add(
-            Sphere {
+            check_fit_ball(Sphere {
                 center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
-            },
+            }),
             FairyLight::new(TextureLoader::solid_from_vec(
                 Vec3::new(0.7, 0.6, 0.5).scale(1.3),
             )),
         );
     } else {
         scene.add(
-            Sphere {
+            check_fit_ball(Sphere {
                 center: Point(Vec3::new(-4.0, 1.0, 0.0)),
                 radius: 1.0,
-            },
+            }),
             Lambertian::new(TextureLoader::solid(0.4, 0.2, 0.1)),
         );
     }
     scene.add(
-        Sphere {
+        check_fit_ball(Sphere {
             center: Point(Vec3::new(4.0, 1.0, 0.0)),
             radius: 1.0,
-        },
+        }),
         Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
     );
 
@@ -422,7 +436,7 @@ fn random_scene(night: bool) -> SceneBuilder {
             if (center.0 - keepout).length() <= 0.9 {
                 continue;
             }
-            let sphere = Sphere { center, radius };
+            let sphere = check_fit_ball(Sphere { center, radius });
             match item {
                 BallTypes::Color => {
                     let albedo = Vec3::random() * Vec3::random();

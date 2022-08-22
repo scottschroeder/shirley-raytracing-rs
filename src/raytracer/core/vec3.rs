@@ -3,7 +3,7 @@ use std::ops;
 use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
 
-use crate::raytracer::core::math::{fmin_one, random_real, Real};
+use crate::core::math::{fmin_one, random_real, Real};
 
 const NEAR_ZERO: f64 = 1e-8;
 

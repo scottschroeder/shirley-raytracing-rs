@@ -1,4 +1,4 @@
-use crate::raytracer::{
+use crate::{
     core::{Color, Point},
     material::texture::Texture,
 };

@@ -1,6 +1,9 @@
 use clap::Parser;
 
-use super::{DEFAULT_OUTPUT, DEFAULT_REFLECT_DEPTH, DEFAULT_SAMPLES, DEFAULT_WIDTH};
+const DEFAULT_WIDTH: &str = "640";
+const DEFAULT_SAMPLES: &str = "100";
+const DEFAULT_REFLECT_DEPTH: &str = "50";
+const DEFAULT_OUTPUT: &str = "out.png";
 
 const DEFAULT_CAMERA_VFOV: &str = "20.0";
 const DEFAULT_CAMERA_FOCAL_LENGTH: &str = "1.0";

@@ -44,7 +44,7 @@ impl From<RectBox> for GeometricObject {
 impl Geometry for GeometricObject {
     fn hit(
         &self,
-        ray: &crate::raytracer::core::Ray,
+        ray: &crate::core::Ray,
         t_min: f64,
         t_max: f64,
     ) -> Option<super::hittable::HitRecord> {
@@ -57,7 +57,7 @@ impl Geometry for GeometricObject {
         }
     }
 
-    fn bounding_box(&self) -> Option<crate::raytracer::bvh::aabb::Aabb> {
+    fn bounding_box(&self) -> Option<crate::bvh::aabb::Aabb> {
         match self {
             GeometricObject::Sphere(x) => x.bounding_box(),
             GeometricObject::RectXY(x) => x.bounding_box(),

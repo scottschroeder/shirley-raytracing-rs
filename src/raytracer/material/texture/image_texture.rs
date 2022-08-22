@@ -3,7 +3,7 @@ use std::path::Path;
 use image::GenericImageView;
 use nalgebra::clamp;
 
-use crate::raytracer::{
+use crate::{
     core::{Color, Point, Vec3},
     material::texture::Texture,
 };

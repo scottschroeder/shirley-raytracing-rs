@@ -9,7 +9,7 @@ use super::{
     solid::ConstantTexture,
     Texture,
 };
-use crate::raytracer::{
+use crate::{
     core::{Color, Vec3},
     material::perlin::NoiseTexture,
 };

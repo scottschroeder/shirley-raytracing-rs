@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::raytracer::core::{math::random_in_unit_disk, Point, Ray, Vec3};
+use crate::core::{math::random_in_unit_disk, Point, Ray, Vec3};
 
 const DEFAULT_FOCAL_LENGTH: f64 = 1.0;
 

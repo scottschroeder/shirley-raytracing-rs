@@ -1,4 +1,4 @@
-use crate::raytracer::{
+use crate::{
     bvh::aabb::Aabb,
     core::{Point, Ray, Vec3},
 };

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::aabb::{bounding, surrounding_box, Aabb};
-use crate::raytracer::{
+use crate::{
     core::Ray,
     geometry::hittable::{Geometry, HitRecord, Hittable},
 };

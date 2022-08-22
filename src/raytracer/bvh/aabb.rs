@@ -1,4 +1,4 @@
-use crate::raytracer::core::{
+use crate::core::{
     fp::{fmax, fmin},
     Point, Ray, Vec3, EACH_DIMM,
 };

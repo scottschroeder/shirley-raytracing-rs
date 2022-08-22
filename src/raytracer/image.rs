@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::raytracer::{
+use crate::{
     camera::Dimmensions,
     core::{Color, Vec3},
 };
