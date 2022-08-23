@@ -1,3 +1,4 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::{texture::Texture, Material, Scatter};
@@ -18,12 +19,12 @@ impl<T> DiffuseLight<T> {
 }
 
 impl<T: Texture> Material for DiffuseLight<T> {
-    fn scatter(&self, _ray: &Ray, _record: &HitRecord) -> Option<Scatter> {
-        None
-    }
-
     fn emitted(&self, _ray: &Ray, record: &HitRecord) -> Option<Color> {
         Some(self.albedo.value(record.u, record.v, &record.point))
+    }
+
+    fn scatter<R: Rng>(&self, _rng: &mut R, _ray: &Ray, _record: &HitRecord) -> Option<Scatter> {
+        None
     }
 }
 
@@ -39,8 +40,8 @@ impl<T> FairyLight<T> {
 }
 
 impl<T: Texture> Material for FairyLight<T> {
-    fn scatter(&self, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
-        let mut scatter = record.normal + random_unit_vector();
+    fn scatter<R: Rng>(&self, rng: &mut R, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
+        let mut scatter = record.normal + random_unit_vector(rng);
         if scatter.near_zero() {
             scatter = record.normal;
         }

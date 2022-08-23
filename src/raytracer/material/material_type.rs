@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -47,17 +48,18 @@ impl<T: LoadableTexture> MaterialType<T> {
 }
 
 impl<T: Texture> Material for MaterialType<T> {
-    fn scatter(
+    fn scatter<R: Rng>(
         &self,
+        rng: &mut R,
         ray: &crate::core::Ray,
         record: &crate::geometry::hittable::HitRecord,
     ) -> Option<super::Scatter> {
         match self {
-            MaterialType::Metal(m) => m.scatter(ray, record),
-            MaterialType::Dielectric(m) => m.scatter(ray, record),
-            MaterialType::Lambertian(m) => m.scatter(ray, record),
-            MaterialType::DiffuseLight(m) => m.scatter(ray, record),
-            MaterialType::FairyLight(m) => m.scatter(ray, record),
+            MaterialType::Metal(m) => m.scatter(rng, ray, record),
+            MaterialType::Dielectric(m) => m.scatter(rng, ray, record),
+            MaterialType::Lambertian(m) => m.scatter(rng, ray, record),
+            MaterialType::DiffuseLight(m) => m.scatter(rng, ray, record),
+            MaterialType::FairyLight(m) => m.scatter(rng, ray, record),
         }
     }
 

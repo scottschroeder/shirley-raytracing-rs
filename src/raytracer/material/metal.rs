@@ -1,3 +1,4 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::{Material, Scatter};
@@ -23,12 +24,12 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(&self, ray: &Ray, record: &HitRecord) -> Option<Scatter> {
+    fn scatter<R: Rng>(&self, rng: &mut R, ray: &Ray, record: &HitRecord) -> Option<Scatter> {
         let reflected = ray.direction.unit().reflect(&record.normal);
 
         let direction = Ray {
             orig: record.point,
-            direction: reflected + random_in_unit_sphere().scale(self.fuzz),
+            direction: reflected + random_in_unit_sphere(rng).scale(self.fuzz),
         };
 
         Some(Scatter {

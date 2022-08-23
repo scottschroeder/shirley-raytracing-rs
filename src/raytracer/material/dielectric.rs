@@ -1,3 +1,4 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::{Material, Scatter};
@@ -18,8 +19,7 @@ fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
 }
 
 impl Material for Dielectric {
-    fn scatter(&self, ray: &Ray, record: &HitRecord) -> Option<Scatter> {
-        use rand::prelude::*;
+    fn scatter<R: Rng>(&self, rng: &mut R, ray: &Ray, record: &HitRecord) -> Option<Scatter> {
         let refraction_ratio = if record.front_face {
             1.0 / self.ir
         } else {
@@ -32,7 +32,7 @@ impl Material for Dielectric {
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
 
         let direction = if refraction_ratio * sin_theta > 1.0
-            || reflectance(cos_theta, refraction_ratio) > thread_rng().gen::<f64>()
+            || reflectance(cos_theta, refraction_ratio) > rng.gen::<f64>()
         {
             unit_direction.reflect(&record.normal)
         } else {

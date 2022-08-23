@@ -6,6 +6,8 @@ pub mod metal;
 pub mod perlin;
 pub mod texture;
 
+use rand::Rng;
+
 use super::geometry::hittable::HitRecord;
 use crate::core::{Color, Ray};
 
@@ -16,7 +18,7 @@ pub struct Scatter {
 }
 
 pub trait Material {
-    fn scatter(&self, ray: &Ray, record: &HitRecord) -> Option<Scatter>;
+    fn scatter<R: Rng>(&self, rng: &mut R, ray: &Ray, record: &HitRecord) -> Option<Scatter>;
     fn emitted(&self, _ray: &Ray, _record: &HitRecord) -> Option<Color> {
         None
     }

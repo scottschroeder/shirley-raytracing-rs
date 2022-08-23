@@ -64,6 +64,12 @@ impl InterpolationKernel {
 }
 
 impl Perlin {
+    /*
+    let mut seed: <ChaCha8Rng as SeedableRng>::Seed = Default::default();
+    thread_rng().fill(&mut seed);
+    let mut rng = ChaCha8Rng::from_seed(seed);
+    println!("{}", rng.gen_range(0..100));
+     */
     fn new() -> Perlin {
         let mut rng = rand::thread_rng();
         let ranfloat = (0..PERLIN_POINT_COUNT)

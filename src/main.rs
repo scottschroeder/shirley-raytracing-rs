@@ -1,6 +1,6 @@
 mod argparse;
 use anyhow::Result;
-use rand::prelude::ThreadRng;
+use rand::Rng;
 use raytracer::{
     camera::{Camera, CameraBuilder, CameraPosition},
     core::{math::random_real, Color, Point, Ray, Vec3},
@@ -47,7 +47,8 @@ fn main() -> Result<()> {
     })
 }
 
-fn ray_color(
+fn ray_color<R: Rng>(
+    rng: &mut R,
     hit_stack: &mut Vec<usize>,
     incoming: &Ray,
     scene: &Scene,
@@ -64,7 +65,7 @@ fn ray_color(
             if let Some(e) = obj.material.emitted(&ray, &r) {
                 emitted += Color(attenuation.0 * e.0);
             }
-            if let Some(scatter) = obj.material.scatter(&ray, &r) {
+            if let Some(scatter) = obj.material.scatter(rng, &ray, &r) {
                 attenuation = Color(attenuation.0 * scatter.attenuation.0);
                 ray = scatter.direction;
             } else {
@@ -227,6 +228,7 @@ fn render_scene(
     let total = scanlines.len();
     if args.single_threaded {
         let mut rng = rand::thread_rng();
+        // let mut rng = rand::prng::chacha::ChaChaRng;
         let mut hit_stack = Vec::new();
         scanlines
             .iter_mut()
@@ -247,7 +249,6 @@ fn render_scene(
     } else {
         scanlines.into_par_iter().enumerate().for_each_init(
             || (rand::thread_rng(), Vec::<usize>::new()),
-            // rand::thread_rng,
             |(rng, hit_stack), (line_idx, buf)| {
                 render_scanline(&frame, rng, samples, max_depth, hit_stack, line_idx, buf);
                 let x = count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -260,25 +261,24 @@ fn render_scene(
     Ok(())
 }
 
-fn render_scanline(
+fn render_scanline<R: Rng>(
     frame: &Frame<'_>,
-    rng: &mut ThreadRng,
+    rng: &mut R,
     samples: usize,
     max_depth: usize,
     hit_stack: &mut Vec<usize>,
     line_idx: usize,
     buf: &mut [Color],
 ) {
-    use rand::prelude::*;
     for (idx, buf_c) in buf.iter_mut().enumerate() {
         let mut c = Color::default();
         for _ in 0..samples {
-            let r = frame.camera.pixel_ray(
-                frame.pos,
-                idx as f64 + rng.gen::<f64>(),
-                line_idx as f64 + rng.gen::<f64>(),
-            );
-            c += ray_color(hit_stack, &r, frame.scene, max_depth);
+            let jitter_idx = idx as f64 + rng.gen::<f64>();
+            let jitter_line_idx = line_idx as f64 + rng.gen::<f64>();
+            let r = frame
+                .camera
+                .pixel_ray(rng, frame.pos, jitter_idx, jitter_line_idx);
+            c += ray_color(rng, hit_stack, &r, frame.scene, max_depth);
         }
         *buf_c = c
     }
@@ -439,14 +439,14 @@ fn random_scene(night: bool) -> SceneBuilder {
             let sphere = check_fit_ball(Sphere { center, radius });
             match item {
                 BallTypes::Color => {
-                    let albedo = Vec3::random() * Vec3::random();
+                    let albedo = rng.gen::<Vec3>() * rng.gen::<Vec3>();
                     scene.add(
                         sphere,
                         Lambertian::new(TextureLoader::solid_from_vec(albedo)),
                     );
                 }
                 BallTypes::SphereLight => {
-                    let albedo = (Vec3::random() * Vec3::random()).scale(5.0);
+                    let albedo = (rng.gen::<Vec3>() * rng.gen::<Vec3>()).scale(5.0);
                     scene.add(
                         sphere,
                         FairyLight::new(TextureLoader::solid_from_vec(albedo)),
@@ -458,13 +458,13 @@ fn random_scene(night: bool) -> SceneBuilder {
                 }
                 BallTypes::Metal => {
                     // metal
-                    let albedo = Color(Vec3::random_range(0.5, 1.0));
+                    let albedo = Color(Vec3::random_range_with_rng(&mut rng, 0.5, 1.0));
                     let fuzz = random_real(&mut rng, 0.0, 0.5);
                     scene.add(sphere, Metal::new(albedo, Some(fuzz)));
                 }
                 BallTypes::Checker => {
                     // checker
-                    let checker_color = Vec3::random() * Vec3::random();
+                    let checker_color = rng.gen::<Vec3>() * rng.gen::<Vec3>();
                     let checker_texture = TextureLoader::checker(
                         8.0 / radius,
                         TextureLoader::solid_from_vec(checker_color),

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use rand::Rng;
 
 use crate::core::{math::random_in_unit_disk, Point, Ray, Vec3};
 
@@ -94,7 +95,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn pixel_ray(&self, pos: &CameraPosition, x: f64, y: f64) -> Ray {
+    pub fn pixel_ray<R: Rng>(&self, rng: &mut R, pos: &CameraPosition, x: f64, y: f64) -> Ray {
         let x_percent = x / (self.dimm.width as f64);
         let y_percent = y / (self.dimm.height as f64);
 
@@ -113,7 +114,7 @@ impl Camera {
         // );
 
         let offset = if let Some(lens_r) = self.lens_radius {
-            let rd = random_in_unit_disk().scale(lens_r);
+            let rd = random_in_unit_disk(rng).scale(lens_r);
             pos.u.scale(rd.x()) + pos.v.scale(rd.y())
         } else {
             Vec3::default()

@@ -1,6 +1,6 @@
 use std::ops;
 
-use rand::rngs::ThreadRng;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::core::math::{fmin_one, random_real, Real};
@@ -29,6 +29,12 @@ impl Dimm {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Vec3 {
     vec: nalgebra::Vector3<Real>,
+}
+
+impl rand::distributions::Distribution<Vec3> for rand::distributions::Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+        Vec3::new(rng.gen::<Real>(), rng.gen::<Real>(), rng.gen::<Real>())
+    }
 }
 
 impl ops::Index<Dimm> for Vec3 {
@@ -95,18 +101,7 @@ impl Vec3 {
         self.vec.z
     }
 
-    pub fn random() -> Vec3 {
-        use rand::prelude::*;
-        let mut rng = rand::thread_rng();
-        Vec3::new(rng.gen::<Real>(), rng.gen::<Real>(), rng.gen::<Real>())
-    }
-
-    pub fn random_range(min: Real, max: Real) -> Vec3 {
-        let mut rng = rand::thread_rng();
-        Vec3::random_range_with_rng(&mut rng, min, max)
-    }
-
-    pub fn random_range_with_rng(rng: &mut ThreadRng, min: Real, max: Real) -> Vec3 {
+    pub fn random_range_with_rng<R: Rng>(rng: &mut R, min: Real, max: Real) -> Vec3 {
         Vec3::new(
             random_real(rng, min, max),
             random_real(rng, min, max),

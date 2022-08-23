@@ -1,3 +1,4 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::{texture::Texture, Material, Scatter};
@@ -18,8 +19,8 @@ impl<T> Lambertian<T> {
 }
 
 impl<T: Texture> Material for Lambertian<T> {
-    fn scatter(&self, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
-        let mut scatter = record.normal + random_unit_vector();
+    fn scatter<R: Rng>(&self, rng: &mut R, _ray: &Ray, record: &HitRecord) -> Option<Scatter> {
+        let mut scatter = record.normal + random_unit_vector(rng);
         if scatter.near_zero() {
             scatter = record.normal;
         }
