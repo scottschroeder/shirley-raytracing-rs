@@ -13,6 +13,7 @@ use super::{
     },
     skybox::SkyBox,
 };
+use crate::bvh::bbox_tree::BboxTreeWorkspace;
 
 pub struct SceneObject {
     geometry: GeometricObject,
@@ -145,7 +146,7 @@ pub struct Scene {
 pub struct WorkspaceScene<'a, 'b> {
     objects: &'a HitList<SceneObject>,
     tree: &'a BboxTree<SceneObject>,
-    stack: &'b mut Vec<usize>,
+    stack: &'b mut BboxTreeWorkspace,
 }
 
 impl<'a, 'b> WorkspaceScene<'a, 'b> {
@@ -165,7 +166,7 @@ impl<'a, 'b> WorkspaceScene<'a, 'b> {
 impl Scene {
     pub fn workspace_scene<'a, 'b>(
         &'a self,
-        hit_stack: &'b mut Vec<usize>,
+        hit_stack: &'b mut BboxTreeWorkspace,
     ) -> WorkspaceScene<'a, 'b> {
         WorkspaceScene {
             objects: &self.objects,
@@ -180,7 +181,9 @@ impl Hittable for Scene {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<(&SceneObject, HitRecord)> {
         let closest = self.objects.hit(ray, t_min, t_max);
         let t_closest = closest.as_ref().map(|(_, r)| r.t).unwrap_or(t_max);
-        let new_closest = self.tree.hit(ray, t_min, t_closest);
+        let mut stack = BboxTreeWorkspace::default();
+        log::warn!("creating new workspace stack, this should be done in the caller");
+        let new_closest = self.tree.hit_workspace(&mut stack, ray, t_min, t_closest);
 
         new_closest.or(closest)
     }

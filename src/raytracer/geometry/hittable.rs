@@ -3,6 +3,7 @@ use crate::{
     core::{Point, Ray, Vec3},
 };
 
+#[derive(Debug, PartialEq)]
 pub struct HitRecord {
     pub point: Point,
     pub normal: Vec3,

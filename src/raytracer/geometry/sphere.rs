@@ -8,7 +8,7 @@ use crate::{
     core::{Point, Ray, Vec3},
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
