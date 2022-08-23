@@ -45,6 +45,14 @@ impl<T: Geometry> BboxTree<T> {
         construct_tree(items)
     }
 
+    pub fn len(&self) -> usize {
+        self.leaves.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.root.is_none()
+    }
+
     pub fn hit_workspace(
         &self,
         workspace: &mut BboxTreeWorkspace,
@@ -217,4 +225,10 @@ mod tests {
         let (obj, _) = hit_result.unwrap();
         assert_eq!(obj, &spheres[1]);
     }
+
+    // TODO test inside obj
+    // TODO test inside box but not inside obj
+    //
+    // TODO test max t is not far enough
+    // TODO test min t is too far
 }

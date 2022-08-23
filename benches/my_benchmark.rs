@@ -1,7 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 use raytracer::{
-    bvh::aabb::Aabb,
+    bvh::{
+        aabb::Aabb,
+        bbox_tree::{BboxTree, BboxTreeWorkspace},
+    },
     camera::{CameraBuilder, CameraPosition},
     core::{
         math::{
@@ -12,10 +16,117 @@ use raytracer::{
     },
 };
 
+use self::bvh_builder::gen_spheres;
+
+mod bvh_builder {
+    use criterion::black_box;
+    use rand::{distributions::Uniform, prelude::Distribution, Rng};
+    use raytracer::{
+        bvh::bbox_tree::{BboxTree, BboxTreeWorkspace},
+        core::{math::random_on_unit_sphere_distribution, Point, Ray, Vec3},
+        geometry::sphere::Sphere,
+    };
+
+    pub struct BvhTester {
+        pub side_len: f64,
+        pub tree: BboxTree<Sphere>,
+    }
+
+    pub fn gen_spheres<R: Rng>(rng: &mut R, side_len: u64) -> Vec<Sphere> {
+        let mut spheres = Vec::new();
+        let range_start = -(side_len as i64);
+        let range_end = side_len as i64;
+        let center_offset_distribution = Uniform::new(-1.0, 1.0);
+        let sphere_radius_distribution = rand_distr::LogNormal::new(0.5, 0.5).unwrap();
+        for x in range_start..range_end {
+            for y in range_start..range_end {
+                for z in range_start..range_end {
+                    let exact_center = Vec3::new(x as f64, y as f64, z as f64);
+                    let offset = Vec3::new(
+                        center_offset_distribution.sample(rng),
+                        center_offset_distribution.sample(rng),
+                        center_offset_distribution.sample(rng),
+                    );
+                    let center = exact_center + offset;
+                    let radius = sphere_radius_distribution.sample(rng);
+                    spheres.push(Sphere {
+                        center: Point(center),
+                        radius,
+                    });
+                }
+            }
+        }
+        spheres
+    }
+
+    impl BvhTester {
+        pub fn run_once<R: Rng>(&self, rng: &mut R, workspace: &mut BboxTreeWorkspace) {
+            let range_distrib = Uniform::new(-self.side_len, self.side_len);
+            let orig = Point(Vec3::new(
+                range_distrib.sample(rng),
+                range_distrib.sample(rng),
+                range_distrib.sample(rng),
+            ));
+            let dir = random_on_unit_sphere_distribution(rng);
+            let ray = Ray::new(orig, dir);
+            let obj = self.tree.hit_workspace(workspace, &ray, 0.0, std::f64::MAX);
+            black_box(obj.is_some());
+        }
+    }
+}
+
 pub fn criterion_benchmark(c: &mut Criterion) {
     bench_aabb_hit(c);
+    bench_bvh(c);
     bench_random(c);
     bench_camera(c);
+
+    // important functions based on flamegraph
+    // material scatter
+    // sphere hit
+    // sphere uv
+    // ray_color
+}
+pub fn bench_bvh(c: &mut Criterion) {
+    let scales = (0..4).map(|p| (2u64).pow(p)).collect::<Vec<_>>();
+
+    {
+        let mut group = c.benchmark_group("bvh constructor");
+
+        for scale in &scales {
+            let mut rng = ChaCha20Rng::seed_from_u64(0xDEADBEEF);
+            let spheres = gen_spheres(&mut rng, *scale);
+
+            group.throughput(criterion::Throughput::Elements(spheres.len() as u64));
+            group.bench_with_input(BenchmarkId::new("new", spheres.len()), &spheres, |b, i| {
+                b.iter_batched(|| i.clone(), BboxTree::new, BatchSize::PerIteration)
+            });
+        }
+    }
+
+    {
+        let mut group = c.benchmark_group("bvh hit");
+
+        for scale in &scales {
+            let mut rng = ChaCha20Rng::seed_from_u64(0xDEADBEEF);
+            let spheres = gen_spheres(&mut rng, *scale);
+            let builder = bvh_builder::BvhTester {
+                side_len: *scale as f64,
+                tree: BboxTree::new(spheres),
+            };
+
+            group.throughput(criterion::Throughput::Elements(builder.tree.len() as u64));
+            group.bench_with_input(
+                BenchmarkId::new("hit", builder.tree.len()),
+                &builder,
+                |b, i| {
+                    let mut rng = ChaCha20Rng::seed_from_u64(0xDEADBEEF);
+                    let mut workspace = BboxTreeWorkspace::default();
+                    b.iter(|| i.run_once(&mut rng, &mut workspace))
+                },
+            );
+        }
+    }
 }
 pub fn bench_aabb_hit(c: &mut Criterion) {
     let bbox = Aabb {

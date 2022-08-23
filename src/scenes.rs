@@ -1,4 +1,5 @@
 use anyhow::Result;
+use rand::{thread_rng, Rng};
 use raytracer::{
     camera::{Camera, CameraBuilder, CameraPosition},
     core::{math::random_real, Color, Point, Vec3},
@@ -133,7 +134,8 @@ pub fn render_saved(args: &argparse::RenderSaved) -> Result<()> {
 }
 
 pub fn render_random(args: &argparse::RenderRandom) -> Result<()> {
-    let scene = random_scene(args.night);
+    let mut rng = thread_rng();
+    let scene = random_scene(&mut rng, args.night);
 
     if let Some(save) = args.scene_output.as_ref() {
         let mut f = std::fs::File::create(save)?;
@@ -276,7 +278,7 @@ pub fn create_fancy_ground(scene: &mut SceneBuilder) {
     );
 }
 
-pub fn random_scene(night: bool) -> SceneBuilder {
+pub fn random_scene<R: Rng>(rng: &mut R, night: bool) -> SceneBuilder {
     use rand::prelude::*;
     let mut scene = SceneBuilder::default();
     if night {
@@ -343,8 +345,6 @@ pub fn random_scene(night: bool) -> SceneBuilder {
     //     Metal::new(Color(Vec3::new(0.7, 0.6, 0.5)), None),
     // );
 
-    let mut rng = thread_rng();
-
     #[derive(Clone, Copy)]
     enum BallTypes {
         Color,
@@ -368,9 +368,9 @@ pub fn random_scene(night: bool) -> SceneBuilder {
 
     for a in -11..11 {
         for b in -11..11 {
-            let item = types.choose_weighted(&mut rng, |x| x.1).unwrap().0;
+            let item = types.choose_weighted(rng, |x| x.1).unwrap().0;
 
-            let radius = random_real(&mut rng, 0.05, 0.25);
+            let radius = random_real(rng, 0.05, 0.25);
             let center = Point(Vec3::new(
                 a as f64 + 0.9 * rng.gen::<f64>(),
                 radius,
@@ -402,8 +402,8 @@ pub fn random_scene(night: bool) -> SceneBuilder {
                 }
                 BallTypes::Metal => {
                     // metal
-                    let albedo = Color(Vec3::random_range_with_rng(&mut rng, 0.5, 1.0));
-                    let fuzz = random_real(&mut rng, 0.0, 0.5);
+                    let albedo = Color(Vec3::random_range_with_rng(rng, 0.5, 1.0));
+                    let fuzz = random_real(rng, 0.0, 0.5);
                     scene.add(sphere, Metal::new(albedo, Some(fuzz)));
                 }
                 BallTypes::Checker => {

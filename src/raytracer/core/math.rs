@@ -63,6 +63,8 @@ pub fn random_unit_vector<R: Rng>(rng: &mut R) -> Vec3 {
     let mut v = random_in_unit_sphere(rng);
     v.unit_mut();
     v
+    // TODO replace with this
+    // random_on_unit_sphere_distribution(rng)
 }
 
 pub fn random_in_unit_disk<R: Rng>(rng: &mut R) -> Vec3 {
